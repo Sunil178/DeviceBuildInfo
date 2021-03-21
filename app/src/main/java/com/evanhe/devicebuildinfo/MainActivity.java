@@ -21,6 +21,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.text.Html;
 import android.widget.TextView;
@@ -32,6 +33,7 @@ import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
     private String screen_text;
+    private String device_name;
     private String android_OS;
     private String android_device;
     private String android_model;
@@ -68,12 +70,13 @@ public class MainActivity extends AppCompatActivity {
         this.manufaturer = Build.MANUFACTURER;
         this.abi = Build.CPU_ABI;
         this.tags = Build.TAGS;
+        this.device_name = Settings.Global.getString(getContentResolver(), Settings.Global.DEVICE_NAME);
         this.locale = Locale.getDefault().getDisplayCountry();
         this.googlePlayServicesAvailable = isGooglePlayServicesAvailable(MainActivity.this);
         TelephonyManager telephonyManager = (TelephonyManager) getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE);
         this.network = telephonyManager.getNetworkOperatorName();
 
-        screen_text = "<b>SDK Version:</b> " + sdk_version + "<br><b>Release:</b> " + android_OS + "<br><b>Device:</b> " + android_device + "<br><b>Model:</b> " + android_model + "<br><b>Brand:</b> " + android_brand + "<br><b>Manufacturer:</b> " + manufaturer + "<br><b>Product:</b> " + android_product + "<br><b>ABI:</b> " + abi + "<br><b>Tags:</b> " +tags + "<br><b>Build ID:</b> " + build_id + "<br><b>Display ID:</b> " + display_id + "<br><b>Locale:</b> " + locale + "<br><b>Network:</b> " + network + "<br><b>Google Play Services:</b> " + googlePlayServicesAvailable + "<br><b>Device DRM ID:</b> " + unique_device_id;
+        screen_text = "<b>Device Name:</b> " + device_name + "<br><b>SDK Version:</b> " + sdk_version + "<br><b>Release:</b> " + android_OS + "<br><b>Device:</b> " + android_device + "<br><b>Model:</b> " + android_model + "<br><b>Brand:</b> " + android_brand + "<br><b>Manufacturer:</b> " + manufaturer + "<br><b>Product:</b> " + android_product + "<br><b>ABI:</b> " + abi + "<br><b>Tags:</b> " +tags + "<br><b>Build ID:</b> " + build_id + "<br><b>Display ID:</b> " + display_id + "<br><b>Locale:</b> " + locale + "<br><b>Network:</b> " + network + "<br><b>Google Play Services:</b> " + googlePlayServicesAvailable + "<br><b>Device DRM ID:</b> " + unique_device_id;
         tx = findViewById(R.id.hello);
         tx.setText(Html.fromHtml(screen_text));
 
