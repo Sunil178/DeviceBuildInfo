@@ -34,7 +34,11 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.text.Html;
+import android.util.Log;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -62,8 +66,8 @@ public class MainActivity extends AppCompatActivity {
     private String abi;
     private String tags;
     private String android_id;
-    private String imei = "";
-    private boolean googlePlayServicesAvailable, isGPSEnabled;
+    private String imei = "Not Supported";
+    private boolean googlePlayServicesAvailable, isNetworkEnabled;
     private int sdk_version;
     private TextView tx, tx2;
     private LocationManager locationManager;
@@ -110,113 +114,118 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        browser = (WebView) findViewById(R.id.webview);
-        browser.getSettings().setJavaScriptEnabled(true);
-        htmlText = "<b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufaturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='location'></span><span id='city'></span><span id='gadid'></span>" + "<br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i>" +
-                "<style type=\"text/css\">\n" +
-                "#toast {\n" +
-                "position: fixed;\n" +
-                "display:block;\n" +
-                "bottom: 2em;\n" +
-                "height: 2em;\n" +
-                "width: 10em;\n" +
-                "left: calc(50% - 5em);\n" +
-                "animation: toast-fade-in 1s 2 alternate;\n" +
-                "background-color: black;\n" +
-                "border-radius: 2em;\n" +
-                "color: white;\n" +
-                "text-align: center;\n" +
-                "padding: 1em;\n" +
-                "line-height: 2em;\n" +
-                "opacity: 0;\n" +
-                "}\n" +
-                "@keyframes toast-fade-in {\n" +
-                "from {\n" +
-                "opacity: 0;\n" +
-                "}\n" +
-                "to {\n" +
-                "opacity: 1;\n" +
-                "}\n" +
-                "}\n" +
-                "</style>" +
-                "" +
-                "<script>" +
-                "function updateGadid(gid) {\n" +
-                    "\tdocument.getElementById('gadid').innerHTML = \"<br><br><b>AD id:</b> <i>\" + gid + \"</i>\"" +
-                "}\n" +
-                "function updateLocation(lat, long) {\n" +
-                    "\tdocument.getElementById('location').innerHTML = \"<br><br><b>Location:</b> <i>\" + lat + \", \" + long + \"</i>\"" +
-                "}\n" +
-                "function updateCity(city) {\n" +
-                    "\tdocument.getElementById('city').innerHTML = \"<br><br><b>City:</b> <i>\" + city + \"</i>\"" +
-                "}" +
-                "function updateIP(ip) {\n" +
-                    "\tdocument.getElementById('pip').innerHTML = \"<br><br><b>IP Address:</b> <i>\" + ip + \"</i>\"" +
-                "}" +
-                "function updateIMEI(imei) {\n" +
-                    "\tdocument.getElementById('imei').innerHTML = \"<br><br><b>IMEI:</b> <i>\" + imei + \"</i>\"" +
-                "}" +
-                "function copyTextToClipboard(text) {\n" +
-                "  var textArea = document.createElement(\"textarea\");\n" +
-                "  textArea.style.position = 'fixed';\n" +
-                "  textArea.style.top = 0;\n" +
-                "  textArea.style.left = 0;\n" +
-                "  textArea.style.width = '2em';\n" +
-                "  textArea.style.height = '2em';\n" +
-                "  textArea.style.padding = 0;\n" +
-                "  textArea.style.border = 'none';\n" +
-                "  textArea.style.outline = 'none';\n" +
-                "  textArea.style.boxShadow = 'none';\n" +
-                "  textArea.style.background = 'transparent';\n" +
-                "  textArea.value = text;\n" +
-                "  document.body.appendChild(textArea);\n" +
-                "  textArea.focus();\n" +
-                "  textArea.select();\n" +
-                "  try {\n" +
-                "    var successful = document.execCommand('copy');\n" +
-                "    showToast(\"Copied!!\");\n" +
-                "  } catch (err) {\n" +
-                "    showToast(\"Failed to copy!!\")\n" +
-                "  }\n" +
-                "  document.body.removeChild(textArea);\n" +
-                "}\n" +
-                "function showToast(text) {\n" +
-                "  span = document.createElement('span');\n" +
-                "  text = document.createTextNode(text)\n" +
-                "  span.append(text)\n" +
-                "  span.setAttribute(\"id\", \"toast\")\n" +
-                "  document.body.appendChild(span)\n" +
-                "  setTimeout(function(){\n" +
-                "    document.getElementById('toast').remove()\n" +
-                "  },2000);\n" +
-                "}; \n" +
-                "function copyText(e) {\n" +
-                "  console.log(e.target.tagName)\n" +
-                "  console.log(e.target.tagName == \"i\")\n" +
-                "  if (e.target.tagName == \"I\") {\n" +
-                "    elementData = e.target.innerText;\n" +
-                "    copyTextToClipboard(elementData);\n" +
-                "  }\n" +
-                "}\n" +
-                "\n" +
-                "document.addEventListener(\"click\", copyText);" +
-                "</script>";
-        browser.loadData(htmlText, "text/html; charset=UTF-8", null);
-        new GetPublicIP().execute();
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         locationListener = new MyLocationListener(getApplicationContext());
-
+        isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
         try {
             if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
                 ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
             }
             else {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
-                isGPSEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+                if (isNetworkEnabled)
+                    locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
+                else
+                    locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
             }
         } catch (Exception e){
             e.printStackTrace();
         }
+
+
+        browser = (WebView) findViewById(R.id.webview);
+        browser.getSettings().setJavaScriptEnabled(true);
+        browser.setWebChromeClient(new WebChromeClient());
+        htmlText = "<!DOCTYPE html><html><head><style type=\"text/css\">\n" +
+                "#toast {" +
+                "position: fixed;" +
+                "display: block;" +
+                "bottom: 2em;" +
+                "height: 2em;" +
+                "width: 10em;" +
+                "left: calc(50% - 5em);" +
+                "animation: toast-fade-in 1s 2 alternate;" +
+                "background-color: black;" +
+                "border-radius: 2em;" +
+                "color: white;" +
+                "text-align: center;" +
+                "padding: 1em;" +
+                "line-height: 2em;" +
+                "opacity: 0;" +
+                "}" +
+                "@keyframes toast-fade-in {" +
+                "from {" +
+                "opacity: 0;" +
+                "}" +
+                "to {" +
+                "opacity: 1;" +
+                "}" +
+                "}" +
+                "</style></head><body><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufaturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='city'><br><br><b>City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span>" + "<br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i>" +
+                "<script type=\"text/javascript\">" +
+                "function updateGadid(gid) {" +
+                "document.getElementById('gadid').innerHTML = \"<br><br><b>AD id:</b> <i>\" + gid + \"</i>\";" +
+                "}" +
+                "function updateLocation(lat, long) {" +
+                "document.getElementById('location').innerHTML = \"<br><br><b>Location:</b> <i>\" + lat + \", \" + long + \"</i>\";" +
+                "}" +
+                "function updateCity(city) {" +
+                "document.getElementById('city').innerHTML = \"<br><br><b>City:</b> <i>\" + city + \"</i>\";" +
+                "}" +
+                "function updateIP(ip) {" +
+                "document.getElementById('pip').innerHTML = \"<br><br><b>IP Address:</b> <i>\" + ip + \"</i>\";" +
+                "}" +
+                "function updateIMEI(imei) {" +
+                "document.getElementById('imei').innerHTML = \"<br><br><b>IMEI:</b> <i>\" + imei + \"</i>\";" +
+                "}" +
+                "</script>" +
+                "<script type=\"text/javascript\">" +
+                "function copyTextToClipboard(text) {" +
+                "  var textArea = document.createElement(\"textarea\");" +
+                "  textArea.style.position = 'fixed';" +
+                "  textArea.style.top = 0;" +
+                "  textArea.style.left = 0;" +
+                "  textArea.style.width = '2em';" +
+                "  textArea.style.height = '2em';" +
+                "  textArea.style.padding = 0;" +
+                "  textArea.style.border = 'none';" +
+                "  textArea.style.outline = 'none';" +
+                "  textArea.style.boxShadow = 'none';" +
+                "  textArea.style.background = 'transparent';" +
+                "  textArea.value = text;" +
+                "  document.body.appendChild(textArea);" +
+                "  textArea.focus();" +
+                "  textArea.select();" +
+                "  try {" +
+                "    var successful = document.execCommand('copy');" +
+                "    showToast(\"Copied!!\");" +
+                "  } catch (err) {" +
+                "    showToast(\"Failed to copy!!\");" +
+                "  }" +
+                "  document.body.removeChild(textArea);" +
+                "}" +
+                "function showToast(text) {" +
+                "  span = document.createElement('span');" +
+                "  text = document.createTextNode(text);" +
+                "  span.append(text);" +
+                "  span.setAttribute(\"id\", \"toast\");" +
+                "  document.body.appendChild(span);" +
+                "  setTimeout(function(){" +
+                "    document.getElementById('toast').remove();" +
+                "  },2000);" +
+                "}; " +
+                "function copyText(e) {" +
+                "  if (e.target.tagName == \"I\") {" +
+                "    elementData = e.target.innerText;" +
+                "    copyTextToClipboard(elementData);" +
+                "  }" +
+                "}" +
+                "document.addEventListener(\"click\", copyText);" +
+                "</script>" +
+                "</body>" +
+                "</html>";
+        browser.loadDataWithBaseURL("file:///android_asset/www/", htmlText, "text/html", "UTF-8", null);
+        new GetPublicIP().execute();
+
     }
 
     @SuppressLint({"MissingPermission", "WrongConstant"})
@@ -224,7 +233,10 @@ public class MainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         if (requestCode == REQUEST_CODE_CHECK_SETTINGS) {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+                    if (isNetworkEnabled)
+                        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
+                    else
+                        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
                 } else {
                     Toast.makeText(MainActivity.this, "Permission denied to get your Location", Toast.LENGTH_SHORT).show();
                 }
@@ -233,8 +245,17 @@ public class MainActivity extends AppCompatActivity {
 
         if (requestCode == REQUEST_CODE_READ_PHONE) {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
-                    MainActivity.browser.loadUrl("javascript:(updateIMEI(\"" + this.imei + "\"))");
+                    try {
+
+                        if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
+                            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
+                        }
+
+                        this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
+                        MainActivity.browser.loadUrl("javascript:(updateIMEI(\"" + this.imei + "\"))");
+                    } catch (Exception e){
+                        e.printStackTrace();
+                    }
                 } else {
                     Toast.makeText(MainActivity.this, "Permission denied to read your Phone", Toast.LENGTH_SHORT).show();
                 }
@@ -318,8 +339,6 @@ class MyLocationListener implements LocationListener {
         String latitude = loc.getLatitude() + "";
         String longitude = loc.getLongitude() + "";
 
-//        System.out.println("*************************** " + latitude + ", " + longitude);
-
         MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + latitude + "\", \"" + longitude + "\"))");
 
         /*------- To get city name from coordinates -------- */
@@ -337,8 +356,6 @@ class MyLocationListener implements LocationListener {
         catch (IOException e) {
             e.printStackTrace();
         }
-        String s = longitude + "\n" + latitude + "\n\nMy Current City is: "
-                + cityName;
     }
 
     @Override
