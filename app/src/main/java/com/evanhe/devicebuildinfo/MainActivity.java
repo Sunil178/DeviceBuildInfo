@@ -1,29 +1,32 @@
 package com.evanhe.devicebuildinfo;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
-
 import com.google.android.gms.ads.identifier.AdvertisingIdClient;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 import com.google.android.gms.common.GooglePlayServicesRepairableException;
-
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
-import android.location.LocationListener;
 import android.location.LocationManager;
 import android.media.MediaDrm;
 import android.os.AsyncTask;
@@ -33,15 +36,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
-import android.text.Html;
-import android.util.Log;
-import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
-import android.widget.TextView;
 import android.widget.Toast;
-
+import org.json.JSONException;
+import org.json.JSONObject;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -49,7 +48,6 @@ import java.util.Locale;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
-    private String screen_text;
     private String device_name;
     private String android_OS;
     private String android_device;
@@ -59,24 +57,24 @@ public class MainActivity extends AppCompatActivity {
     private String unique_device_id;
     private String build_id;
     private String display_id;
-    private String gid_text;
     private String locale;
     private String manufaturer;
     private String network;
     private String abi;
     private String tags;
     private String android_id;
+    private String address, city;
     private String imei = "Not Supported";
-    private boolean googlePlayServicesAvailable, isNetworkEnabled;
+    private boolean googlePlayServicesAvailable;
     private int sdk_version;
-    private TextView tx, tx2;
-    private LocationManager locationManager;
-    private LocationListener locationListener;
     String gid = "";
     String htmlText;
     public static WebView browser;
     public static int REQUEST_CODE_CHECK_SETTINGS = 101;
     public static int REQUEST_CODE_READ_PHONE = 100;
+    FusedLocationProviderClient mFusedLocationClient;
+    Geocoder geocoder;
+    List<Address> addresses;
 
     @SuppressLint("WrongConstant")
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -84,6 +82,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        geocoder = new Geocoder(this, Locale.getDefault());
         this.sdk_version = Build.VERSION.SDK_INT;
         this.android_OS = Build.VERSION.RELEASE;
         this.android_device = Build.DEVICE;
@@ -114,18 +114,12 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        locationListener = new MyLocationListener(getApplicationContext());
-        isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
         try {
             if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
                 ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
             }
             else {
-                if (isNetworkEnabled)
-                    locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
-                else
-                    locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+                getLastLocation();
             }
         } catch (Exception e){
             e.printStackTrace();
@@ -160,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
                 "opacity: 1;" +
                 "}" +
                 "}" +
-                "</style></head><body><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufaturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='city'><br><br><b>City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span>" + "<br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i>" +
+                "</style></head><body><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufaturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='ipregion'><br><br><b>IP Region:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span>" + "<br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i>" +
                 "<script type=\"text/javascript\">" +
                 "function updateGadid(gid) {" +
                 "document.getElementById('gadid').innerHTML = \"<br><br><b>AD id:</b> <i>\" + gid + \"</i>\";" +
@@ -168,11 +162,20 @@ public class MainActivity extends AppCompatActivity {
                 "function updateLocation(lat, long) {" +
                 "document.getElementById('location').innerHTML = \"<br><br><b>Location:</b> <i>\" + lat + \", \" + long + \"</i>\";" +
                 "}" +
+                "function updateAddress(address) {" +
+                "document.getElementById('address').innerHTML = \"<br><br><b>Address:</b> <i>\" + address + \"</i>\";" +
+                "}" +
                 "function updateCity(city) {" +
-                "document.getElementById('city').innerHTML = \"<br><br><b>City:</b> <i>\" + city + \"</i>\";" +
+                "document.getElementById('city').innerHTML = \"<br><br><b>Location City:</b> <i>\" + city + \"</i>\";" +
                 "}" +
                 "function updateIP(ip) {" +
                 "document.getElementById('pip').innerHTML = \"<br><br><b>IP Address:</b> <i>\" + ip + \"</i>\";" +
+                "}" +
+                "function updateIpRegion(region) {" +
+                "document.getElementById('ipregion').innerHTML = \"<br><br><b>IP Region:</b> <i>\" + region + \"</i>\";" +
+                "}" +
+                "function updateIpCity(city) {" +
+                "document.getElementById('ipcity').innerHTML = \"<br><br><b>IP City:</b> <i>\" + city + \"</i>\";" +
                 "}" +
                 "function updateIMEI(imei) {" +
                 "document.getElementById('imei').innerHTML = \"<br><br><b>IMEI:</b> <i>\" + imei + \"</i>\";" +
@@ -233,10 +236,7 @@ public class MainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         if (requestCode == REQUEST_CODE_CHECK_SETTINGS) {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    if (isNetworkEnabled)
-                        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
-                    else
-                        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+                    getLastLocation();
                 } else {
                     Toast.makeText(MainActivity.this, "Permission denied to get your Location", Toast.LENGTH_SHORT).show();
                 }
@@ -322,50 +322,83 @@ public class MainActivity extends AppCompatActivity {
     public String getUniqueID() {
         try {
             return Arrays.toString(new MediaDrm(new UUID(-1301668207276963122L, -6645017420763422227L)).getPropertyByteArray("deviceUniqueId")).replaceAll("\\[|]|, |", "");
-//            return Arrays.toString(new MediaDrm(new UUID(-1301668207276963122L, -6645017420763422227L)).getPropertyByteArray("deviceUniqueId"));
         } catch (Exception unused) {
             return null;
         }
     }
-}
 
-/*---------- Listener class to get coordinates ------------- */
-class MyLocationListener implements LocationListener {
+    @SuppressLint("MissingPermission")
+    private void getLastLocation() {
+        if (isLocationEnabled()) {
 
-    Context context;
-    MyLocationListener(Context context) { this.context = context; }
-    @Override
-    public void onLocationChanged(Location loc) {
-        String latitude = loc.getLatitude() + "";
-        String longitude = loc.getLongitude() + "";
+            mFusedLocationClient.getLastLocation().addOnCompleteListener(new OnCompleteListener<Location>() {
+                @Override
+                public void onComplete(@NonNull Task<Location> task) {
+                    Location location = task.getResult();
+                    if (location == null) {
+                        requestNewLocationData();
+                    } else {
+                        MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + location.getLatitude() + "\", \"" + location.getLongitude() + "\"))");
 
-        MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + latitude + "\", \"" + longitude + "\"))");
+                        try {
+                            addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
+                            address = addresses.get(0).getAddressLine(0);
+                            city = addresses.get(0).getLocality();
 
-        /*------- To get city name from coordinates -------- */
-        String cityName = null;
-        Geocoder gcd = new Geocoder(this.context, Locale.getDefault());
-        List<Address> addresses;
-        try {
-            addresses = gcd.getFromLocation(loc.getLatitude(), loc.getLongitude(), 1);
-            if (addresses.size() > 0) {
-                System.out.println(addresses.get(0).getLocality());
-                cityName = addresses.get(0).getLocality();
-                MainActivity.browser.loadUrl("javascript:(updateCity(\"" + cityName + "\"))");
-            }
-        }
-        catch (IOException e) {
-            e.printStackTrace();
+                            MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
+                            MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
+
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            });
+        } else {
+            Toast.makeText(this, "Please turn on" + " your location...", Toast.LENGTH_LONG).show();
+            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            startActivity(intent);
         }
     }
 
-    @Override
-    public void onProviderDisabled(String provider) {}
+    @SuppressLint("MissingPermission")
+    private void requestNewLocationData() {
 
-    @Override
-    public void onProviderEnabled(String provider) {}
+        LocationRequest mLocationRequest = new LocationRequest();
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setInterval(5);
+        mLocationRequest.setFastestInterval(0);
+        mLocationRequest.setNumUpdates(1);
+        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        mFusedLocationClient.requestLocationUpdates(mLocationRequest, mLocationCallback, Looper.myLooper());
+    }
 
-    @Override
-    public void onStatusChanged(String provider, int status, Bundle extras) {}
+    private LocationCallback mLocationCallback = new LocationCallback() {
+
+        @Override
+        public void onLocationResult(LocationResult locationResult) {
+            Location mLastLocation = locationResult.getLastLocation();
+
+            MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + mLastLocation.getLatitude() + "\", \"" + mLastLocation.getLongitude() + "\"))");
+            try {
+                addresses = geocoder.getFromLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude(), 1);
+                address = addresses.get(0).getAddressLine(0);
+                city = addresses.get(0).getLocality();
+
+                MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
+                MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    };
+
+    private boolean isLocationEnabled() {
+        LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+    }
+
 }
 
 class GetPublicIP extends AsyncTask<String, String, String> {
@@ -374,15 +407,15 @@ class GetPublicIP extends AsyncTask<String, String, String> {
     protected String doInBackground(String... strings) {
         String publicIP = "";
         try  {
+
             java.util.Scanner s = new java.util.Scanner(
                     new java.net.URL(
-                            "https://api.ipify.org")
+                            "http://ip-api.com/json")
                             .openStream(), "UTF-8")
                     .useDelimiter("\\A");
             publicIP = s.next();
-            System.out.println("My current IP address is " + publicIP);
-        } catch (java.io.IOException e) {
-            MainActivity.browser.loadUrl("javascript:(updateIP(\"No Internet\"))");
+        } catch (IOException e) {
+//            MainActivity.browser.loadUrl("javascript:(updateIP(\"No Internet\"))");
             e.printStackTrace();
         }
 
@@ -392,6 +425,16 @@ class GetPublicIP extends AsyncTask<String, String, String> {
     @Override
     protected void onPostExecute(String publicIp) {
         super.onPostExecute(publicIp);
-        MainActivity.browser.loadUrl("javascript:(updateIP(\"" + publicIp + "\"))");
+
+        try {
+            JSONObject obj = new JSONObject(publicIp);
+
+            MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"" + obj.get("regionName") + "\"))");
+            MainActivity.browser.loadUrl("javascript:(updateIpCity(\"" + obj.get("city") + "\"))");
+            MainActivity.browser.loadUrl("javascript:(updateIP(\"" + obj.get("query") + "\"))");
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
     }
 }
