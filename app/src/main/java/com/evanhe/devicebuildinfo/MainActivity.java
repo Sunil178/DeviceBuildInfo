@@ -36,9 +36,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
+import android.view.View;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.EditText;
 import android.widget.Toast;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -49,7 +51,7 @@ import java.util.Locale;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
-    private String device_name;
+    private String proxy_string, device_name;
     private String android_OS;
     private String android_device;
     private String android_model;
@@ -76,6 +78,7 @@ public class MainActivity extends AppCompatActivity {
     FusedLocationProviderClient mFusedLocationClient;
     Geocoder geocoder;
     List<Address> addresses;
+    EditText proxy;
 
     @SuppressLint("WrongConstant")
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -103,6 +106,9 @@ public class MainActivity extends AppCompatActivity {
         TelephonyManager telephonyManager = (TelephonyManager) getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE);
         this.network = telephonyManager.getNetworkOperatorName();
         this.android_id = Settings.Secure.getString(getApplicationContext().getContentResolver(), "android_id");
+
+        proxy = findViewById(R.id.proxy_string);
+        proxy.setText(Settings.Global.getString(getContentResolver(), "http_proxy"));
 
         try {
             if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED ) {
@@ -403,6 +409,29 @@ public class MainActivity extends AppCompatActivity {
         return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
+    public void setProxy(View view) {
+            proxy = findViewById(R.id.proxy_string);
+            proxy_string = proxy.getText().toString();
+
+        if (proxy_string.trim().equals("")) {
+            Settings.Global.putString(
+                    getContentResolver(),
+                    Settings.Global.HTTP_PROXY,
+                    ":0"
+            );
+            Toast.makeText(MainActivity.this, "Proxy removed", Toast.LENGTH_LONG).show();
+        }
+        else {
+            Settings.Global.putString(
+                    getContentResolver(),
+                    Settings.Global.HTTP_PROXY,
+                    proxy_string
+            );
+            Toast.makeText(MainActivity.this, "Proxy set to " + proxy_string, Toast.LENGTH_LONG).show();
+        }
+
+    }
 }
 
 class GetPublicIP extends AsyncTask<String, String, String> {
