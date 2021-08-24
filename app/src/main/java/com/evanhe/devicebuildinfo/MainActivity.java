@@ -414,7 +414,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             proxy = findViewById(R.id.proxy_string);
             proxy_string = proxy.getText().toString();
-            if (proxy_string.trim().equals("")) {
+            if (MainActivity.proxy_string == null || proxy_string.trim().equals("")) {
                 proxy_string = ":0";
                 Settings.Global.putString(
                         getContentResolver(),
@@ -451,7 +451,7 @@ class GetPublicIP extends AsyncTask<String, String, String> {
         String publicIP = "";
 
         try  {
-            if (MainActivity.proxy_string.trim().equals("") || MainActivity.proxy_string.trim().equals(":0")) {
+            if (MainActivity.proxy_string == null || MainActivity.proxy_string.trim().equals("") || MainActivity.proxy_string.trim().equals(":0")) {
                 socket = new URL("http://ip-api.com/json").openConnection();
             }
             else {
