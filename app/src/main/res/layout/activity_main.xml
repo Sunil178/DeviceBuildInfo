@@ -16,6 +16,7 @@
             android:layout_weight="1"
             android:layout_width="0dp"/>
         <Button
+            android:id="@+id/set_proxy"
             android:text="Set Proxy"
             android:onClick="setProxy"
             android:layout_width="wrap_content"

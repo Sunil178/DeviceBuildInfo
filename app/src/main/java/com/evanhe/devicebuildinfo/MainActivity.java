@@ -40,6 +40,7 @@ import android.view.View;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 import org.json.JSONException;
@@ -51,27 +52,11 @@ import java.util.Locale;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
-    private String proxy_string, device_name;
-    private String android_OS;
-    private String android_device;
-    private String android_model;
-    private String android_brand;
-    private String android_product;
-    private String unique_device_id;
-    private String build_id;
-    private String display_id;
-    private String locale;
-    private String manufaturer;
-    private String network;
-    private String abi;
-    private String tags;
-    private String android_id;
-    private String address, city;
+    private String proxy_string, device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufaturer, network, abi, tags, android_id, address, city, htmlText;
     private String imei = "Not Supported";
     private boolean googlePlayServicesAvailable;
     private int sdk_version;
     String gid = "";
-    String htmlText;
     public static WebView browser;
     public static int REQUEST_CODE_CHECK_SETTINGS = 101;
     public static int REQUEST_CODE_READ_PHONE = 100;
@@ -79,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
     Geocoder geocoder;
     List<Address> addresses;
     EditText proxy;
+    Button set_proxy;
 
     @SuppressLint("WrongConstant")
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -109,6 +95,8 @@ public class MainActivity extends AppCompatActivity {
 
         proxy = findViewById(R.id.proxy_string);
         proxy.setText(Settings.Global.getString(getContentResolver(), "http_proxy"));
+        set_proxy = findViewById(R.id.set_proxy);
+        set_proxy.setEnabled(false);
 
         try {
             if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED ) {
@@ -126,6 +114,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 try {
+                    set_proxy.setEnabled(true);
                     new GetPublicIP().execute();
 
                     if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
@@ -411,8 +400,13 @@ public class MainActivity extends AppCompatActivity {
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
     public void setProxy(View view) {
-            proxy = findViewById(R.id.proxy_string);
-            proxy_string = proxy.getText().toString();
+
+        MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"Searching...\"))");
+        MainActivity.browser.loadUrl("javascript:(updateIpCity(\"Searching...\"))");
+        MainActivity.browser.loadUrl("javascript:(updateIP(\"Searching...\"))");
+
+        proxy = findViewById(R.id.proxy_string);
+        proxy_string = proxy.getText().toString();
 
         if (proxy_string.trim().equals("")) {
             Settings.Global.putString(
@@ -430,7 +424,7 @@ public class MainActivity extends AppCompatActivity {
             );
             Toast.makeText(MainActivity.this, "Proxy set to " + proxy_string, Toast.LENGTH_LONG).show();
         }
-
+        new GetPublicIP().execute();
     }
 }
 
