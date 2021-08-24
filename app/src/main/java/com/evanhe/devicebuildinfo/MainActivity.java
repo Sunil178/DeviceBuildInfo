@@ -38,6 +38,7 @@ import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.Toast;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -114,21 +115,26 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
 
-        try {
-            if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
-                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
-            }
-            else {
-                getLastLocation();
-            }
-        } catch (Exception e){
-            e.printStackTrace();
-        }
-
-
         browser = (WebView) findViewById(R.id.webview);
-        browser.getSettings().setJavaScriptEnabled(true);
+        browser.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                try {
+                    new GetPublicIP().execute();
+
+                    if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
+                        ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
+                    }
+                    else {
+                        getLastLocation();
+                    }
+                } catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        });
         browser.setWebChromeClient(new WebChromeClient());
+        browser.getSettings().setJavaScriptEnabled(true);
         htmlText = "<!DOCTYPE html><html><head><style type=\"text/css\">\n" +
                 "#toast {" +
                 "position: fixed;" +
@@ -227,8 +233,6 @@ public class MainActivity extends AppCompatActivity {
                 "</body>" +
                 "</html>";
         browser.loadDataWithBaseURL("file:///android_asset/www/", htmlText, "text/html", "UTF-8", null);
-        new GetPublicIP().execute();
-
     }
 
     @SuppressLint({"MissingPermission", "WrongConstant"})
@@ -415,7 +419,9 @@ class GetPublicIP extends AsyncTask<String, String, String> {
                     .useDelimiter("\\A");
             publicIP = s.next();
         } catch (IOException e) {
-//            MainActivity.browser.loadUrl("javascript:(updateIP(\"No Internet\"))");
+            MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"No Internet\"))");
+            MainActivity.browser.loadUrl("javascript:(updateIpCity(\"No Internet\"))");
+            MainActivity.browser.loadUrl("javascript:(updateIP(\"No Internet\"))");
             e.printStackTrace();
         }
 
