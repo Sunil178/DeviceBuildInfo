@@ -46,14 +46,20 @@ import android.widget.Toast;
 import org.json.JSONException;
 import org.json.JSONObject;
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
-    private String proxy_string, device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufaturer, network, abi, tags, android_id, address, city, htmlText;
+    private String device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufaturer, network, abi, tags, android_id, address, city, htmlText;
     private String imei = "Not Supported";
+    public static String proxy_string;
     private boolean googlePlayServicesAvailable;
     private int sdk_version;
     String gid = "";
@@ -94,7 +100,8 @@ public class MainActivity extends AppCompatActivity {
         this.android_id = Settings.Secure.getString(getApplicationContext().getContentResolver(), "android_id");
 
         proxy = findViewById(R.id.proxy_string);
-        proxy.setText(Settings.Global.getString(getContentResolver(), "http_proxy"));
+        proxy_string = Settings.Global.getString(getContentResolver(), "http_proxy");
+        proxy.setText(proxy_string);
         set_proxy = findViewById(R.id.set_proxy);
         set_proxy.setEnabled(false);
 
@@ -245,11 +252,9 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == REQUEST_CODE_READ_PHONE) {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     try {
-
                         if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
                             ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
                         }
-
                         this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
                         MainActivity.browser.loadUrl("javascript:(updateIMEI(\"" + this.imei + "\"))");
                     } catch (Exception e){
@@ -277,7 +282,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-
         Handler handler = new Handler(Looper.getMainLooper());
         handler.postDelayed(new Runnable() {
             public void run() {
@@ -292,7 +296,6 @@ public class MainActivity extends AppCompatActivity {
 
 
         new Thread(new Runnable() {
-
             @Override
             public void run() {
                 try {
@@ -329,7 +332,6 @@ public class MainActivity extends AppCompatActivity {
     @SuppressLint("MissingPermission")
     private void getLastLocation() {
         if (isLocationEnabled()) {
-
             mFusedLocationClient.getLastLocation().addOnCompleteListener(new OnCompleteListener<Location>() {
                 @Override
                 public void onComplete(@NonNull Task<Location> task) {
@@ -337,17 +339,22 @@ public class MainActivity extends AppCompatActivity {
                     if (location == null) {
                         requestNewLocationData();
                     } else {
-                        MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + location.getLatitude() + "\", \"" + location.getLongitude() + "\"))");
-
                         try {
                             addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
                             address = addresses.get(0).getAddressLine(0);
                             city = addresses.get(0).getLocality();
-
+                            MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + location.getLatitude() + "\", \"" + location.getLongitude() + "\"))");
                             MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
                             MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
-
                         } catch (IOException e) {
+                            MainActivity.browser.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    MainActivity.browser.loadUrl("javascript:(updateLocation(\"No Internet\", \"No Internet\"))");
+                                    MainActivity.browser.loadUrl("javascript:(updateAddress(\"No Internet\"))");
+                                    MainActivity.browser.loadUrl("javascript:(updateCity(\"No Internet\"))");
+                                }
+                            });
                             e.printStackTrace();
                         }
                     }
@@ -362,7 +369,6 @@ public class MainActivity extends AppCompatActivity {
 
     @SuppressLint("MissingPermission")
     private void requestNewLocationData() {
-
         LocationRequest mLocationRequest = new LocationRequest();
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         mLocationRequest.setInterval(5);
@@ -377,17 +383,22 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onLocationResult(LocationResult locationResult) {
             Location mLastLocation = locationResult.getLastLocation();
-
-            MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + mLastLocation.getLatitude() + "\", \"" + mLastLocation.getLongitude() + "\"))");
             try {
                 addresses = geocoder.getFromLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude(), 1);
                 address = addresses.get(0).getAddressLine(0);
                 city = addresses.get(0).getLocality();
-
+                MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + mLastLocation.getLatitude() + "\", \"" + mLastLocation.getLongitude() + "\"))");
                 MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
                 MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
-
             } catch (IOException e) {
+                MainActivity.browser.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        MainActivity.browser.loadUrl("javascript:(updateLocation(\"No Internet\", \"No Internet\"))");
+                        MainActivity.browser.loadUrl("javascript:(updateAddress(\"No Internet\"))");
+                        MainActivity.browser.loadUrl("javascript:(updateCity(\"No Internet\"))");
+                    }
+                });
                 e.printStackTrace();
             }
         }
@@ -400,68 +411,91 @@ public class MainActivity extends AppCompatActivity {
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
     public void setProxy(View view) {
-
-        MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"Searching...\"))");
-        MainActivity.browser.loadUrl("javascript:(updateIpCity(\"Searching...\"))");
-        MainActivity.browser.loadUrl("javascript:(updateIP(\"Searching...\"))");
-
-        proxy = findViewById(R.id.proxy_string);
-        proxy_string = proxy.getText().toString();
-
-        if (proxy_string.trim().equals("")) {
-            Settings.Global.putString(
-                    getContentResolver(),
-                    Settings.Global.HTTP_PROXY,
-                    ":0"
-            );
-            Toast.makeText(MainActivity.this, "Proxy removed", Toast.LENGTH_LONG).show();
+        try {
+            proxy = findViewById(R.id.proxy_string);
+            proxy_string = proxy.getText().toString();
+            if (proxy_string.trim().equals("")) {
+                proxy_string = ":0";
+                Settings.Global.putString(
+                        getContentResolver(),
+                        Settings.Global.HTTP_PROXY,
+                        proxy_string
+                );
+                Toast.makeText(MainActivity.this, "Proxy removed", Toast.LENGTH_LONG).show();
+            } else {
+                Settings.Global.putString(
+                        getContentResolver(),
+                        Settings.Global.HTTP_PROXY,
+                        proxy_string
+                );
+                Toast.makeText(MainActivity.this, "Proxy set to " + proxy_string, Toast.LENGTH_LONG).show();
+            }
+            MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"Searching...\"))");
+            MainActivity.browser.loadUrl("javascript:(updateIpCity(\"Searching...\"))");
+            MainActivity.browser.loadUrl("javascript:(updateIP(\"Searching...\"))");
+            new GetPublicIP().execute();
+            getLastLocation();
         }
-        else {
-            Settings.Global.putString(
-                    getContentResolver(),
-                    Settings.Global.HTTP_PROXY,
-                    proxy_string
-            );
-            Toast.makeText(MainActivity.this, "Proxy set to " + proxy_string, Toast.LENGTH_LONG).show();
+        catch (SecurityException e) {
+            Toast.makeText(MainActivity.this, "Permission denied to WRITE_SECURE_SETTINGS", Toast.LENGTH_LONG).show();
+            e.printStackTrace();
         }
-        new GetPublicIP().execute();
     }
 }
 
 class GetPublicIP extends AsyncTask<String, String, String> {
-
+    URLConnection socket;
+    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
     @Override
     protected String doInBackground(String... strings) {
         String publicIP = "";
-        try  {
 
-            java.util.Scanner s = new java.util.Scanner(
-                    new java.net.URL(
-                            "http://ip-api.com/json")
-                            .openStream(), "UTF-8")
-                    .useDelimiter("\\A");
+        try  {
+            if (MainActivity.proxy_string.trim().equals("") || MainActivity.proxy_string.trim().equals(":0")) {
+                socket = new URL("http://ip-api.com/json").openConnection();
+            }
+            else {
+                String[] arrayString = MainActivity.proxy_string.split(":");
+                Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(arrayString[0], Integer.parseInt(arrayString[1])));
+                socket = new URL("http://ip-api.com/json").openConnection(proxy);
+            }
+
+            socket.setUseCaches( false );
+            socket.setDefaultUseCaches( false );
+            HttpURLConnection conn = ( HttpURLConnection )socket;
+            conn.setUseCaches( false );
+            conn.setDefaultUseCaches( false );
+            conn.setRequestProperty( "Cache-Control",  "no-cache" );
+            conn.addRequestProperty("Cache-Control", "max-age=0");
+            conn.setRequestProperty( "Pragma",  "no-cache" );
+            conn.setRequestProperty( "Expires",  "0" );
+            conn.setRequestMethod( "GET" );
+            conn.connect();
+            java.util.Scanner s = new java.util.Scanner(conn.getInputStream(), "UTF-8").useDelimiter("\\A");
             publicIP = s.next();
+            conn.disconnect();
         } catch (IOException e) {
-            MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"No Internet\"))");
-            MainActivity.browser.loadUrl("javascript:(updateIpCity(\"No Internet\"))");
-            MainActivity.browser.loadUrl("javascript:(updateIP(\"No Internet\"))");
+            MainActivity.browser.post(new Runnable() {
+                @Override
+                public void run() {
+                    MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"No Internet\"))");
+                    MainActivity.browser.loadUrl("javascript:(updateIpCity(\"No Internet\"))");
+                    MainActivity.browser.loadUrl("javascript:(updateIP(\"No Internet\"))");
+                }
+            });
             e.printStackTrace();
         }
-
         return publicIP;
     }
 
     @Override
     protected void onPostExecute(String publicIp) {
         super.onPostExecute(publicIp);
-
         try {
             JSONObject obj = new JSONObject(publicIp);
-
             MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"" + obj.get("regionName") + "\"))");
             MainActivity.browser.loadUrl("javascript:(updateIpCity(\"" + obj.get("city") + "\"))");
             MainActivity.browser.loadUrl("javascript:(updateIP(\"" + obj.get("query") + "\"))");
-
         } catch (JSONException e) {
             e.printStackTrace();
         }
