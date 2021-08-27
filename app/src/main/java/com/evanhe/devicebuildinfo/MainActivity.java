@@ -46,6 +46,8 @@ import android.widget.Toast;
 import org.json.JSONException;
 import org.json.JSONObject;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
@@ -59,7 +61,7 @@ import java.util.UUID;
 public class MainActivity extends AppCompatActivity {
     private String device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufaturer, network, abi, tags, android_id, address, city, htmlText;
     private String imei = "Not Supported";
-    public static String proxy_string;
+    public static String proxy_string, location_string = "", ip_string = "";
     private boolean googlePlayServicesAvailable;
     private int sdk_version;
     String gid = "";
@@ -118,6 +120,7 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
 
                 if (MainActivity.location_status && MainActivity.ip_status) {
+                    new StoreIPLocation(getApplicationContext(), android_id, ip_string, location_string).execute();
                     MainActivity.location_status = false;
                     MainActivity.ip_status = false;
                     handler.removeCallbacks(runnable);
@@ -371,6 +374,7 @@ public class MainActivity extends AppCompatActivity {
                             MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
                             MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
                             MainActivity.location_status = true;
+                            MainActivity.location_string = location.getLatitude() + "," + location.getLongitude();
                         } catch (IOException e) {
                             MainActivity.browser.post(new Runnable() {
                                 @Override
@@ -416,6 +420,7 @@ public class MainActivity extends AppCompatActivity {
                 MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
                 MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
                 MainActivity.location_status = true;
+                MainActivity.location_string = mLastLocation.getLatitude() + "," + mLastLocation.getLongitude();
             } catch (IOException e) {
                 MainActivity.browser.post(new Runnable() {
                     @Override
@@ -524,6 +529,62 @@ class GetPublicIP extends AsyncTask<String, String, String> {
             MainActivity.browser.loadUrl("javascript:(updateIpCity(\"" + obj.get("city") + "\"))");
             MainActivity.browser.loadUrl("javascript:(updateIP(\"" + obj.get("query") + "\"))");
             MainActivity.ip_status = true;
+            MainActivity.ip_string = obj.getString("query");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+class StoreIPLocation extends AsyncTask<String, String, String> {
+    URLConnection socket;
+    String device_id, ip, location;
+    Context context;
+
+    StoreIPLocation(Context context, String device_id, String ip, String location) {
+        this.context = context;
+        this.device_id = device_id;
+        this.ip = ip;
+        this.location = location;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
+    @Override
+    protected String doInBackground(String... strings) {
+        String response = "";
+
+        try  {
+            socket = new URL("https://citysourcing.in/ip_location.php?device_id=" + device_id + "&ip=" + ip + "&location=" + location).openConnection();
+            socket.setUseCaches( false );
+            socket.setDefaultUseCaches( false );
+            HttpURLConnection conn = ( HttpURLConnection )socket;
+            conn.setUseCaches( false );
+            conn.setDefaultUseCaches( false );
+            conn.setRequestProperty( "Cache-Control",  "no-cache" );
+            conn.addRequestProperty("Cache-Control", "max-age=0");
+            conn.setRequestProperty( "Pragma",  "no-cache" );
+            conn.setRequestProperty( "Expires",  "0" );
+            conn.setRequestMethod( "GET" );
+            conn.connect();
+            java.util.Scanner s = new java.util.Scanner(conn.getInputStream(), "UTF-8").useDelimiter("\\A");
+            response = s.next();
+            conn.disconnect();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return response;
+    }
+
+    @Override
+    protected void onPostExecute(String response) {
+        super.onPostExecute(response);
+        try {
+            System.out.println(response);
+            JSONObject obj = new JSONObject(response);
+            if (obj.getInt("status") == 200)
+                Toast.makeText(context, "IP & Location saved!", Toast.LENGTH_LONG).show();
+            else
+                Toast.makeText(context, "IP & Location save ERROR!", Toast.LENGTH_LONG).show();
         } catch (JSONException e) {
             e.printStackTrace();
         }
