@@ -71,6 +71,11 @@ public class MainActivity extends AppCompatActivity {
     List<Address> addresses;
     EditText proxy;
     Button set_proxy;
+    private Handler handler;
+    private Runnable runnable;
+    public static boolean server_status;
+    public static boolean location_status;
+    public static boolean ip_status;
 
     @SuppressLint("WrongConstant")
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -78,6 +83,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        MainActivity.location_status = false;
+        MainActivity.ip_status = false;
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         geocoder = new Geocoder(this, Locale.getDefault());
         this.sdk_version = Build.VERSION.SDK_INT;
@@ -104,6 +111,23 @@ public class MainActivity extends AppCompatActivity {
         proxy.setText(proxy_string);
         set_proxy = findViewById(R.id.set_proxy);
         set_proxy.setEnabled(false);
+
+        handler = new Handler();
+        runnable = new Runnable() {
+            @Override
+            public void run() {
+
+                if (MainActivity.location_status && MainActivity.ip_status) {
+                    MainActivity.location_status = false;
+                    MainActivity.ip_status = false;
+                    handler.removeCallbacks(runnable);
+                }
+                else {
+                    handler.postDelayed(runnable, 1000);
+                }
+            }
+        };
+        handler.post(runnable);
 
         try {
             if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED ) {
@@ -346,6 +370,7 @@ public class MainActivity extends AppCompatActivity {
                             MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + location.getLatitude() + "\", \"" + location.getLongitude() + "\"))");
                             MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
                             MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
+                            MainActivity.location_status = true;
                         } catch (IOException e) {
                             MainActivity.browser.post(new Runnable() {
                                 @Override
@@ -390,6 +415,7 @@ public class MainActivity extends AppCompatActivity {
                 MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + mLastLocation.getLatitude() + "\", \"" + mLastLocation.getLongitude() + "\"))");
                 MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
                 MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
+                MainActivity.location_status = true;
             } catch (IOException e) {
                 MainActivity.browser.post(new Runnable() {
                     @Override
@@ -433,6 +459,7 @@ public class MainActivity extends AppCompatActivity {
             MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"Searching...\"))");
             MainActivity.browser.loadUrl("javascript:(updateIpCity(\"Searching...\"))");
             MainActivity.browser.loadUrl("javascript:(updateIP(\"Searching...\"))");
+            handler.post(runnable);
             new GetPublicIP().execute();
             getLastLocation();
         }
@@ -496,6 +523,7 @@ class GetPublicIP extends AsyncTask<String, String, String> {
             MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"" + obj.get("regionName") + "\"))");
             MainActivity.browser.loadUrl("javascript:(updateIpCity(\"" + obj.get("city") + "\"))");
             MainActivity.browser.loadUrl("javascript:(updateIP(\"" + obj.get("query") + "\"))");
+            MainActivity.ip_status = true;
         } catch (JSONException e) {
             e.printStackTrace();
         }
