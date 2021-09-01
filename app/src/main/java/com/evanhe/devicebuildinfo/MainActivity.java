@@ -61,7 +61,7 @@ import java.util.UUID;
 public class MainActivity extends AppCompatActivity {
     private String device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufaturer, network, abi, tags, android_id, address, city, htmlText;
     private String imei = "Not Supported";
-    public static String proxy_string, location_string = "", ip_string = "";
+    public static String proxy_string, location_string = "", ip_string = "", ip_city = "";
     private boolean googlePlayServicesAvailable;
     private int sdk_version;
     String gid = "";
@@ -73,8 +73,8 @@ public class MainActivity extends AppCompatActivity {
     List<Address> addresses;
     EditText proxy;
     Button set_proxy;
-    private Handler handler;
-    private Runnable runnable;
+    public static Handler handler;
+    public static Runnable runnable;
     public static boolean server_status;
     public static boolean location_status;
     public static boolean ip_status;
@@ -120,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
 
                 if (MainActivity.location_status && MainActivity.ip_status) {
-                    new StoreIPLocation(getApplicationContext(), android_id, ip_string, location_string).execute();
+                    new StoreIPLocation(getApplicationContext(), android_id, ip_string, location_string, ip_city).execute();
                     MainActivity.location_status = false;
                     MainActivity.ip_status = false;
                     handler.removeCallbacks(runnable);
@@ -373,8 +373,8 @@ public class MainActivity extends AppCompatActivity {
                             MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + location.getLatitude() + "\", \"" + location.getLongitude() + "\"))");
                             MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
                             MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
-                            MainActivity.location_status = true;
                             MainActivity.location_string = location.getLatitude() + "," + location.getLongitude();
+                            MainActivity.location_status = true;
                         } catch (IOException e) {
                             MainActivity.browser.post(new Runnable() {
                                 @Override
@@ -382,6 +382,7 @@ public class MainActivity extends AppCompatActivity {
                                     MainActivity.browser.loadUrl("javascript:(updateLocation(\"No Internet\", \"No Internet\"))");
                                     MainActivity.browser.loadUrl("javascript:(updateAddress(\"No Internet\"))");
                                     MainActivity.browser.loadUrl("javascript:(updateCity(\"No Internet\"))");
+                                    MainActivity.handler.removeCallbacks(MainActivity.runnable);
                                 }
                             });
                             e.printStackTrace();
@@ -419,8 +420,8 @@ public class MainActivity extends AppCompatActivity {
                 MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + mLastLocation.getLatitude() + "\", \"" + mLastLocation.getLongitude() + "\"))");
                 MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
                 MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
-                MainActivity.location_status = true;
                 MainActivity.location_string = mLastLocation.getLatitude() + "," + mLastLocation.getLongitude();
+                MainActivity.location_status = true;
             } catch (IOException e) {
                 MainActivity.browser.post(new Runnable() {
                     @Override
@@ -428,6 +429,7 @@ public class MainActivity extends AppCompatActivity {
                         MainActivity.browser.loadUrl("javascript:(updateLocation(\"No Internet\", \"No Internet\"))");
                         MainActivity.browser.loadUrl("javascript:(updateAddress(\"No Internet\"))");
                         MainActivity.browser.loadUrl("javascript:(updateCity(\"No Internet\"))");
+                        MainActivity.handler.removeCallbacks(MainActivity.runnable);
                     }
                 });
                 e.printStackTrace();
@@ -513,6 +515,7 @@ class GetPublicIP extends AsyncTask<String, String, String> {
                     MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"No Internet\"))");
                     MainActivity.browser.loadUrl("javascript:(updateIpCity(\"No Internet\"))");
                     MainActivity.browser.loadUrl("javascript:(updateIP(\"No Internet\"))");
+                    MainActivity.handler.removeCallbacks(MainActivity.runnable);
                 }
             });
             e.printStackTrace();
@@ -528,24 +531,27 @@ class GetPublicIP extends AsyncTask<String, String, String> {
             MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"" + obj.get("regionName") + "\"))");
             MainActivity.browser.loadUrl("javascript:(updateIpCity(\"" + obj.get("city") + "\"))");
             MainActivity.browser.loadUrl("javascript:(updateIP(\"" + obj.get("query") + "\"))");
-            MainActivity.ip_status = true;
             MainActivity.ip_string = obj.getString("query");
+            MainActivity.ip_city = obj.getString("city");
+            MainActivity.ip_status = true;
         } catch (JSONException e) {
             e.printStackTrace();
+            MainActivity.handler.removeCallbacks(MainActivity.runnable);
         }
     }
 }
 
 class StoreIPLocation extends AsyncTask<String, String, String> {
     URLConnection socket;
-    String device_id, ip, location;
+    String device_id, ip, location, city;
     Context context;
 
-    StoreIPLocation(Context context, String device_id, String ip, String location) {
+    StoreIPLocation(Context context, String device_id, String ip, String location, String city) {
         this.context = context;
         this.device_id = device_id;
         this.ip = ip;
         this.location = location;
+        this.city = city;
     }
 
     @RequiresApi(api = Build.VERSION_CODES.KITKAT)
@@ -554,7 +560,7 @@ class StoreIPLocation extends AsyncTask<String, String, String> {
         String response = "";
 
         try  {
-            socket = new URL("https://citysourcing.in/ip_location.php?device_id=" + device_id + "&ip=" + ip + "&location=" + location).openConnection();
+            socket = new URL("https://citysourcing.in/ip_location.php?device_id=" + device_id + "&ip=" + ip + "&location=" + location + "&city=" + city).openConnection();
             socket.setUseCaches( false );
             socket.setDefaultUseCaches( false );
             HttpURLConnection conn = ( HttpURLConnection )socket;
@@ -582,9 +588,9 @@ class StoreIPLocation extends AsyncTask<String, String, String> {
             System.out.println(response);
             JSONObject obj = new JSONObject(response);
             if (obj.getInt("status") == 200)
-                Toast.makeText(context, "IP & Location saved!", Toast.LENGTH_LONG).show();
+                Toast.makeText(context, "Details saved!", Toast.LENGTH_LONG).show();
             else
-                Toast.makeText(context, "IP & Location save ERROR!", Toast.LENGTH_LONG).show();
+                Toast.makeText(context, "Details save ERROR!", Toast.LENGTH_LONG).show();
         } catch (JSONException e) {
             e.printStackTrace();
         }
