@@ -33,6 +33,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver android:name="com.evanhe.devicebuildinfo.UpdateIPDataReceiver" android:enabled="true">
+            <intent-filter android:priority="999">
+                <action android:name="com.evanhe.devicebuildinfo.intent.TEST"/>
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

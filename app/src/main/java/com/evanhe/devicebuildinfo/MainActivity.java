@@ -71,8 +71,8 @@ public class MainActivity extends AppCompatActivity {
     FusedLocationProviderClient mFusedLocationClient;
     Geocoder geocoder;
     List<Address> addresses;
-    EditText proxy;
-    Button set_proxy;
+    public static EditText proxy;
+    public static Button set_proxy;
     public static Handler handler;
     public static Runnable runnable;
     public static boolean server_status;
@@ -476,6 +476,14 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
+
+    public static void updateIPData(Context context, String proxy) {
+        proxy_string = proxy;
+        MainActivity.proxy.setText(proxy_string);
+        MainActivity.set_proxy.setEnabled(true);
+        MainActivity.set_proxy.performClick();
+    }
+
 }
 
 class GetPublicIP extends AsyncTask<String, String, String> {
