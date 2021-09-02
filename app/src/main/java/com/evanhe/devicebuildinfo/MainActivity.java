@@ -363,6 +363,7 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onComplete(@NonNull Task<Location> task) {
                     Location location = task.getResult();
+                    requestNewLocationData();
                     if (location == null) {
                         requestNewLocationData();
                     } else {
@@ -401,11 +402,10 @@ public class MainActivity extends AppCompatActivity {
     private void requestNewLocationData() {
         LocationRequest mLocationRequest = new LocationRequest();
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        mLocationRequest.setInterval(5);
-        mLocationRequest.setFastestInterval(0);
-        mLocationRequest.setNumUpdates(1);
+        mLocationRequest.setInterval(1000);
+        mLocationRequest.setFastestInterval(100);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-        mFusedLocationClient.requestLocationUpdates(mLocationRequest, mLocationCallback, Looper.myLooper());
+        mFusedLocationClient.requestLocationUpdates(mLocationRequest, mLocationCallback, Looper.getMainLooper());
     }
 
     private LocationCallback mLocationCallback = new LocationCallback() {
@@ -469,6 +469,7 @@ public class MainActivity extends AppCompatActivity {
             handler.post(runnable);
             new GetPublicIP().execute();
             getLastLocation();
+            requestNewLocationData();
         }
         catch (SecurityException e) {
             Toast.makeText(MainActivity.this, "Permission denied to WRITE_SECURE_SETTINGS", Toast.LENGTH_LONG).show();
