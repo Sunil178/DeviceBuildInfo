@@ -117,8 +117,15 @@ public class MainActivity extends AppCompatActivity {
         set_proxy = findViewById(R.id.set_proxy);
         set_proxy.setEnabled(false);
 
-        if (!isMockLocationEnabled())
-            startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
+        if (!isMockLocationEnabled()) {
+            try {
+                startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(MainActivity.this, "Please enable developer options", Toast.LENGTH_SHORT).show();
+            }
+        }
 
         handler = new Handler();
         runnable = new Runnable() {
