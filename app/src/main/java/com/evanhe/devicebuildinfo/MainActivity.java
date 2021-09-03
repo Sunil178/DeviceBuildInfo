@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AppOpsManager;
 import android.content.Context;
 import com.google.android.gms.ads.identifier.AdvertisingIdClient;
 import com.google.android.gms.common.ConnectionResult;
@@ -34,6 +35,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.view.View;
@@ -56,6 +58,7 @@ import java.net.URLConnection;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
@@ -113,6 +116,9 @@ public class MainActivity extends AppCompatActivity {
         proxy.setText(proxy_string);
         set_proxy = findViewById(R.id.set_proxy);
         set_proxy.setEnabled(false);
+
+        if (!isMockLocationEnabled())
+            startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
 
         handler = new Handler();
         runnable = new Runnable() {
@@ -306,6 +312,49 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
+    private boolean isMockLocationEnabled()
+    {
+        boolean isMockLocation;
+        try {
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                AppOpsManager opsManager = (AppOpsManager) getApplicationContext().getSystemService(Context.APP_OPS_SERVICE);
+                isMockLocation = (Objects.requireNonNull(opsManager).checkOp(AppOpsManager.OPSTR_MOCK_LOCATION, android.os.Process.myUid(), BuildConfig.APPLICATION_ID)== AppOpsManager.MODE_ALLOWED);
+            } else {
+                isMockLocation = !android.provider.Settings.Secure.getString(getApplicationContext().getContentResolver(), "mock_location").equals("0");
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        return isMockLocation;
+    }
+
+
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
+    private void setMock(String provider, double latitude, double longitude) {
+        LocationManager mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        mLocationManager.addTestProvider (provider, false, false, false, false, false, true, true, 0, 5);
+
+        Location newLocation = new Location(provider);
+
+        newLocation.setLatitude(latitude);
+        newLocation.setLongitude(longitude);
+        newLocation.setAltitude(3F);
+        newLocation.setTime(System.currentTimeMillis());
+        newLocation.setSpeed(0.01F);
+        newLocation.setBearing(1F);
+        newLocation.setAccuracy(3F);
+        newLocation.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+        {
+            newLocation.setBearingAccuracyDegrees(0.1F);
+            newLocation.setVerticalAccuracyMeters(0.1F);
+            newLocation.setSpeedAccuracyMetersPerSecond(0.01F);
+        }
+        mLocationManager.setTestProviderEnabled(provider, true);
+
+        mLocationManager.setTestProviderLocation(provider, newLocation);
+    }
+
     @Override
     protected void onStart() {
         super.onStart();
@@ -360,6 +409,7 @@ public class MainActivity extends AppCompatActivity {
     private void getLastLocation() {
         if (isLocationEnabled()) {
             mFusedLocationClient.getLastLocation().addOnCompleteListener(new OnCompleteListener<Location>() {
+                @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
                 @Override
                 public void onComplete(@NonNull Task<Location> task) {
                     Location location = task.getResult();
@@ -376,6 +426,10 @@ public class MainActivity extends AppCompatActivity {
                             MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
                             MainActivity.location_string = location.getLatitude() + "," + location.getLongitude();
                             MainActivity.location_status = true;
+                            if (isMockLocationEnabled()) {
+                                setMock(LocationManager.GPS_PROVIDER, location.getLatitude(), location.getLongitude());
+                                setMock(LocationManager.NETWORK_PROVIDER, location.getLatitude(), location.getLongitude());
+                            }
                         } catch (IOException e) {
                             MainActivity.browser.post(new Runnable() {
                                 @Override
@@ -410,6 +464,7 @@ public class MainActivity extends AppCompatActivity {
 
     private LocationCallback mLocationCallback = new LocationCallback() {
 
+        @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
         @Override
         public void onLocationResult(LocationResult locationResult) {
             Location mLastLocation = locationResult.getLastLocation();
@@ -422,6 +477,10 @@ public class MainActivity extends AppCompatActivity {
                 MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
                 MainActivity.location_string = mLastLocation.getLatitude() + "," + mLastLocation.getLongitude();
                 MainActivity.location_status = true;
+                if (isMockLocationEnabled()) {
+                    setMock(LocationManager.GPS_PROVIDER, mLastLocation.getLatitude(), mLastLocation.getLongitude());
+                    setMock(LocationManager.NETWORK_PROVIDER, mLastLocation.getLatitude(), mLastLocation.getLongitude());
+                }
             } catch (IOException e) {
                 MainActivity.browser.post(new Runnable() {
                     @Override
