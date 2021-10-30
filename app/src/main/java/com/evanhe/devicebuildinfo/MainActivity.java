@@ -48,8 +48,6 @@ import android.widget.Toast;
 import org.json.JSONException;
 import org.json.JSONObject;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
@@ -60,11 +58,24 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.FormBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.Collections;
+import java.util.Iterator;
+
 
 public class MainActivity extends AppCompatActivity {
-    private String device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufaturer, network, abi, tags, android_id, address, city, htmlText;
+    private String device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufacturer, network, abi, tags, android_id, address, city, htmlText;
     private String imei = "Not Supported";
-    public static String proxy_string, location_string = "", ip_string = "", ip_city = "";
+    public static String proxy_string, device_details_string = "", location_string = "", location_latitude_string = "", location_longitutde_string = "", ip_string = "", ipv6_string = "", ip_city = "";
     private boolean googlePlayServicesAvailable;
     private int sdk_version;
     String gid = "";
@@ -81,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
     public static boolean server_status;
     public static boolean location_status;
     public static boolean ip_status;
+    public static boolean ipv6_status;
 
     @SuppressLint("WrongConstant")
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -90,6 +102,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         MainActivity.location_status = false;
         MainActivity.ip_status = false;
+        MainActivity.ipv6_status = false;
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         geocoder = new Geocoder(this, Locale.getDefault());
         this.sdk_version = Build.VERSION.SDK_INT;
@@ -101,7 +114,7 @@ public class MainActivity extends AppCompatActivity {
         this.unique_device_id = getUniqueID();
         this.build_id = Build.ID;
         this.display_id = Build.DISPLAY;
-        this.manufaturer = Build.MANUFACTURER;
+        this.manufacturer = Build.MANUFACTURER;
         this.abi = Build.CPU_ABI;
         this.tags = Build.TAGS;
         this.device_name = Settings.Global.getString(getContentResolver(), Settings.Global.DEVICE_NAME);
@@ -132,10 +145,19 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
 
-                if (MainActivity.location_status && MainActivity.ip_status) {
-                    new StoreIPLocation(getApplicationContext(), android_id, ip_string, location_string, ip_city).execute();
+                if (MainActivity.location_status && MainActivity.ip_status && MainActivity.ipv6_status) {
+                    RequestBody requestBody = new FormBody.Builder()
+                            .add("device_details", device_details_string)
+                            .add("ipv4", ip_string)
+                            .add("ipv6", ipv6_string)
+                            .add("latitude", location_latitude_string)
+                            .add("longitude", location_longitutde_string)
+                            .build();
+                    postAPI("https://citysourcing.in/api/saveData.php", requestBody);
+
                     MainActivity.location_status = false;
                     MainActivity.ip_status = false;
+                    MainActivity.ipv6_status = false;
                     handler.removeCallbacks(runnable);
                 }
                 else {
@@ -163,6 +185,7 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     set_proxy.setEnabled(true);
                     new GetPublicIP().execute();
+                    new GetPublicIPv6().execute();
 
                     if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
                         ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
@@ -175,6 +198,24 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+        device_details_string = "" +
+                "device_id is " + android_id + ",\n" +
+                "imei is" + imei + ",\n" +
+                "device_name is " + device_name + ",\n" +
+                "sdk_version is " + sdk_version + ",\n" +
+                "release is " + android_OS + ",\n" +
+                "device is " + android_device + ",\n" +
+                "model is " + android_model + ",\n" +
+                "brand is " + android_brand + ",\n" +
+                "manufacturer is " + manufacturer + ",\n" +
+                "product is " + android_product + ",\n" +
+                "network is " + network + ",\n" +
+                "abi is " + abi + ",\n" +
+                "tags is " + tags + ",\n" +
+                "build_id is " + build_id + ",\n" +
+                "display_id is " + display_id + ",\n" +
+                "locale is " + locale + "" +
+                "";
         browser.setWebChromeClient(new WebChromeClient());
         browser.getSettings().setJavaScriptEnabled(true);
         htmlText = "<!DOCTYPE html><html><head><style type=\"text/css\">\n" +
@@ -202,7 +243,7 @@ public class MainActivity extends AppCompatActivity {
                 "opacity: 1;" +
                 "}" +
                 "}" +
-                "</style></head><body><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufaturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='ipregion'><br><br><b>IP Region:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span>" + "<br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i>" +
+                "</style></head><body><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...</span><span id='ipregion'><br><br><b>IP Region:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span>" + "<br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i>" +
                 "<script type=\"text/javascript\">" +
                 "function updateGadid(gid) {" +
                 "document.getElementById('gadid').innerHTML = \"<br><br><b>AD id:</b> <i>\" + gid + \"</i>\";" +
@@ -218,6 +259,9 @@ public class MainActivity extends AppCompatActivity {
                 "}" +
                 "function updateIP(ip) {" +
                 "document.getElementById('pip').innerHTML = \"<br><br><b>IP Address:</b> <i>\" + ip + \"</i>\";" +
+                "}" +
+                "function updateIPv6(ip) {" +
+                "document.getElementById('pipv6').innerHTML = \"<br><br><b>IPv6 Address:</b> <i>\" + ip + \"</i>\";" +
                 "}" +
                 "function updateIpRegion(region) {" +
                 "document.getElementById('ipregion').innerHTML = \"<br><br><b>IP Region:</b> <i>\" + region + \"</i>\";" +
@@ -432,6 +476,8 @@ public class MainActivity extends AppCompatActivity {
                             MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
                             MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
                             MainActivity.location_string = location.getLatitude() + "," + location.getLongitude();
+                            MainActivity.location_latitude_string = location.getLatitude() + "";
+                            MainActivity.location_longitutde_string = location.getLongitude() + "";
                             MainActivity.location_status = true;
                             if (isMockLocationEnabled()) {
                                 setMock(LocationManager.GPS_PROVIDER, location.getLatitude(), location.getLongitude());
@@ -483,6 +529,8 @@ public class MainActivity extends AppCompatActivity {
                 MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
                 MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
                 MainActivity.location_string = mLastLocation.getLatitude() + "," + mLastLocation.getLongitude();
+                MainActivity.location_latitude_string = mLastLocation.getLatitude() + "";
+                MainActivity.location_longitutde_string = mLastLocation.getLongitude() + "";
                 MainActivity.location_status = true;
                 if (isMockLocationEnabled()) {
                     setMock(LocationManager.GPS_PROVIDER, mLastLocation.getLatitude(), mLastLocation.getLongitude());
@@ -534,6 +582,7 @@ public class MainActivity extends AppCompatActivity {
             MainActivity.browser.loadUrl("javascript:(updateIP(\"Searching...\"))");
             handler.post(runnable);
             new GetPublicIP().execute();
+            new GetPublicIPv6().execute();
             getLastLocation();
             requestNewLocationData();
         }
@@ -549,6 +598,72 @@ public class MainActivity extends AppCompatActivity {
         MainActivity.set_proxy.setEnabled(true);
         MainActivity.set_proxy.performClick();
     }
+
+    public static void postAPI(String postUrl, RequestBody postBody) {
+        OkHttpClient client = new OkHttpClient();
+        Request request = new Request.Builder()
+                .url(postUrl)
+                .post(postBody)
+                .build();
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                call.cancel();
+            }
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                String res = response.body().string();
+                try {
+                    JSONObject obj = new JSONObject(res);
+                    if (obj.getInt("status") == 200) {
+                        new Handler(Looper.getMainLooper()).post(new Runnable() {
+                            @Override
+                            public void run() {
+                                MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Saved" + "\"))");
+                            }
+                        });
+                    }
+                    else {
+                        new Handler(Looper.getMainLooper()).post(new Runnable() {
+                            @Override
+                            public void run() {
+                                MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Error" + "\"))");
+                            }
+                        });
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
+/*
+    String displayInterfaceInformation3() {
+        String str = "";
+        try {
+            Iterator<T> it = Collections.list(NetworkInterface.getNetworkInterfaces()).iterator();
+            while (it.hasNext()) {
+                Iterator<T> it2 = Collections.list(((NetworkInterface) it.next()).getInetAddresses()).iterator();
+                while (true) {
+                    if (!it2.hasNext()) {
+                        break;
+                    }
+                    InetAddress inetAddress = (InetAddress) it2.next();
+                    if (!inetAddress.isLoopbackAddress()) {
+                        String hostAddress = inetAddress.getHostAddress();
+                        if (hostAddress.indexOf(58) < 0) {
+                            str = hostAddress;
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (Throwable th) {
+        }
+        return str;
+    }
+ */
 
 }
 
@@ -616,26 +731,23 @@ class GetPublicIP extends AsyncTask<String, String, String> {
     }
 }
 
-class StoreIPLocation extends AsyncTask<String, String, String> {
+class GetPublicIPv6 extends AsyncTask<String, String, String> {
     URLConnection socket;
-    String device_id, ip, location, city;
-    Context context;
-
-    StoreIPLocation(Context context, String device_id, String ip, String location, String city) {
-        this.context = context;
-        this.device_id = device_id;
-        this.ip = ip;
-        this.location = location;
-        this.city = city;
-    }
-
     @RequiresApi(api = Build.VERSION_CODES.KITKAT)
     @Override
     protected String doInBackground(String... strings) {
-        String response = "";
+        String publicIP = "";
 
         try  {
-            socket = new URL("https://citysourcing.in/ip_location.php?device_id=" + device_id + "&ip=" + ip + "&location=" + location + "&city=" + city).openConnection();
+            if (MainActivity.proxy_string == null || MainActivity.proxy_string.trim().equals("") || MainActivity.proxy_string.trim().equals(":0")) {
+                socket = new URL("https://api64.ipify.org").openConnection();
+            }
+            else {
+                String[] arrayString = MainActivity.proxy_string.split(":");
+                Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(arrayString[0], Integer.parseInt(arrayString[1])));
+                socket = new URL("https://api64.ipify.org").openConnection(proxy);
+            }
+
             socket.setUseCaches( false );
             socket.setDefaultUseCaches( false );
             HttpURLConnection conn = ( HttpURLConnection )socket;
@@ -648,26 +760,26 @@ class StoreIPLocation extends AsyncTask<String, String, String> {
             conn.setRequestMethod( "GET" );
             conn.connect();
             java.util.Scanner s = new java.util.Scanner(conn.getInputStream(), "UTF-8").useDelimiter("\\A");
-            response = s.next();
+            publicIP = s.next();
             conn.disconnect();
         } catch (IOException e) {
+            MainActivity.browser.post(new Runnable() {
+                @Override
+                public void run() {
+                    MainActivity.browser.loadUrl("javascript:(updateIPv6(\"No Internet\"))");
+                    MainActivity.handler.removeCallbacks(MainActivity.runnable);
+                }
+            });
             e.printStackTrace();
         }
-        return response;
+        return publicIP;
     }
 
     @Override
-    protected void onPostExecute(String response) {
-        super.onPostExecute(response);
-        try {
-            System.out.println(response);
-            JSONObject obj = new JSONObject(response);
-            if (obj.getInt("status") == 200)
-                Toast.makeText(context, "Details saved!", Toast.LENGTH_LONG).show();
-            else
-                Toast.makeText(context, "Details save ERROR!", Toast.LENGTH_LONG).show();
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
+    protected void onPostExecute(String publicIp) {
+        super.onPostExecute(publicIp);
+        MainActivity.browser.loadUrl("javascript:(updateIPv6(\"" + publicIp + "\"))");
+        MainActivity.ipv6_string = publicIp;
+        MainActivity.ipv6_status = true;
     }
 }
