@@ -10,6 +10,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AppOpsManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import com.google.android.gms.ads.identifier.AdvertisingIdClient;
 import com.google.android.gms.common.ConnectionResult;
@@ -28,6 +29,7 @@ import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.media.MediaDrm;
 import android.os.AsyncTask;
@@ -38,7 +40,10 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
+import android.util.DisplayMetrics;
+import android.view.Display;
 import android.view.View;
+import android.view.WindowManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -75,7 +80,7 @@ import java.util.Iterator;
 public class MainActivity extends AppCompatActivity {
     private String device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufacturer, network, abi, tags, android_id, address, city, htmlText;
     private String imei = "Not Supported";
-    public static String proxy_string, device_details_string = "", location_string = "", location_latitude_string = "", location_longitutde_string = "", ip_string = "", ipv6_string = "", ip_city = "";
+    public static String proxy_string, device_details_string = "", network_location_string = "", location_string = "", location_latitude_string = "", location_longitutde_string = "", ip_string = "", ipv6_string = "", ip_city = "", local_ip = "";
     private boolean googlePlayServicesAvailable;
     private int sdk_version;
     String gid = "";
@@ -91,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
     public static Runnable runnable;
     public static boolean server_status;
     public static boolean location_status;
+    public static boolean network_location_status;
     public static boolean ip_status;
     public static boolean ipv6_status;
 
@@ -101,6 +107,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         MainActivity.location_status = false;
+        MainActivity.network_location_status = false;
         MainActivity.ip_status = false;
         MainActivity.ipv6_status = false;
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -123,6 +130,7 @@ public class MainActivity extends AppCompatActivity {
         TelephonyManager telephonyManager = (TelephonyManager) getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE);
         this.network = telephonyManager.getNetworkOperatorName();
         this.android_id = Settings.Secure.getString(getApplicationContext().getContentResolver(), "android_id");
+        this.local_ip = displayInterfaceInformation();
 
         proxy = findViewById(R.id.proxy_string);
         proxy_string = Settings.Global.getString(getContentResolver(), "http_proxy");
@@ -145,17 +153,19 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
 
-                if (MainActivity.location_status && MainActivity.ip_status && MainActivity.ipv6_status) {
+                if (MainActivity.location_status && MainActivity.ip_status && MainActivity.ipv6_status && MainActivity.network_location_status) {
                     RequestBody requestBody = new FormBody.Builder()
-                            .add("device_details", device_details_string)
+                            .add("android_id", android_id)
                             .add("ipv4", ip_string)
                             .add("ipv6", ipv6_string)
                             .add("latitude", location_latitude_string)
                             .add("longitude", location_longitutde_string)
+                            .add("device_details", device_details_string)
                             .build();
                     postAPI("https://citysourcing.in/api/saveData.php", requestBody);
 
                     MainActivity.location_status = false;
+                    MainActivity.network_location_status = false;
                     MainActivity.ip_status = false;
                     MainActivity.ipv6_status = false;
                     handler.removeCallbacks(runnable);
@@ -192,12 +202,14 @@ public class MainActivity extends AppCompatActivity {
                     }
                     else {
                         getLastLocation();
+                        getLocation();
                     }
                 } catch (Exception e){
                     e.printStackTrace();
                 }
             }
         });
+        DisplayMetrics screenDisplay = getScreenDisplay();
         device_details_string = "" +
                 "device_id is " + android_id + ",\n" +
                 "imei is" + imei + ",\n" +
@@ -210,11 +222,17 @@ public class MainActivity extends AppCompatActivity {
                 "manufacturer is " + manufacturer + ",\n" +
                 "product is " + android_product + ",\n" +
                 "network is " + network + ",\n" +
+                "network_location is " + network_location_string + ",\n" +
+                "local_ip is " + local_ip + ",\n" +
                 "abi is " + abi + ",\n" +
                 "tags is " + tags + ",\n" +
                 "build_id is " + build_id + ",\n" +
                 "display_id is " + display_id + ",\n" +
-                "locale is " + locale + "" +
+                "locale is " + locale + ",\n" +
+                "screen_dpi is " + screenDisplay.densityDpi + ",\n" +
+                "screen_height is " + screenDisplay.heightPixels + ",\n" +
+                "screen_width is " + screenDisplay.widthPixels + ",\n" +
+                "user_agent is " + System.getProperty( "http.agent" ) + "" +
                 "";
         browser.setWebChromeClient(new WebChromeClient());
         browser.getSettings().setJavaScriptEnabled(true);
@@ -243,10 +261,13 @@ public class MainActivity extends AppCompatActivity {
                 "opacity: 1;" +
                 "}" +
                 "}" +
-                "</style></head><body><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...</span><span id='ipregion'><br><br><b>IP Region:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span>" + "<br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i>" +
+                "</style></head><body><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><br><br><b>Local IP:</b> <i>" + local_ip + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...</span><span id='ipregion'><br><br><b>IP Region:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='network_location'><br><br><b>Network Location:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span>" + "<br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i>" +
                 "<script type=\"text/javascript\">" +
                 "function updateGadid(gid) {" +
                 "document.getElementById('gadid').innerHTML = \"<br><br><b>AD id:</b> <i>\" + gid + \"</i>\";" +
+                "}" +
+                "function updateNetworkLocation(lat, long) {" +
+                "document.getElementById('network_location').innerHTML = \"<br><br><b>Network Location:</b> <i>\" + lat + \", \" + long + \"</i>\";" +
                 "}" +
                 "function updateLocation(lat, long) {" +
                 "document.getElementById('location').innerHTML = \"<br><br><b>Location:</b> <i>\" + lat + \", \" + long + \"</i>\";" +
@@ -327,6 +348,7 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == REQUEST_CODE_CHECK_SETTINGS) {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     getLastLocation();
+                    getLocation();
                 } else {
                     Toast.makeText(MainActivity.this, "Permission denied to get your Location", Toast.LENGTH_SHORT).show();
                 }
@@ -584,6 +606,7 @@ public class MainActivity extends AppCompatActivity {
             new GetPublicIP().execute();
             new GetPublicIPv6().execute();
             getLastLocation();
+            getLocation();
             requestNewLocationData();
         }
         catch (SecurityException e) {
@@ -638,13 +661,12 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-/*
-    String displayInterfaceInformation3() {
+    String displayInterfaceInformation() {
         String str = "";
         try {
-            Iterator<T> it = Collections.list(NetworkInterface.getNetworkInterfaces()).iterator();
+            Iterator<NetworkInterface> it = Collections.list(NetworkInterface.getNetworkInterfaces()).iterator();
             while (it.hasNext()) {
-                Iterator<T> it2 = Collections.list(((NetworkInterface) it.next()).getInetAddresses()).iterator();
+                Iterator<InetAddress> it2 = Collections.list(((NetworkInterface) it.next()).getInetAddresses()).iterator();
                 while (true) {
                     if (!it2.hasNext()) {
                         break;
@@ -663,7 +685,57 @@ public class MainActivity extends AppCompatActivity {
         }
         return str;
     }
- */
+
+    public void getLocation() {
+        Location lastKnownLocation;
+        if (ContextCompat.checkSelfPermission(this, "android.permission.ACCESS_FINE_LOCATION") != -1) {
+            @SuppressLint("WrongConstant") LocationManager locationManager2 = (LocationManager) getApplicationContext().getSystemService("location");
+            List<String> providers = locationManager2.getProviders(true);
+            System.out.println("*******Provider*******");
+            for (String provider : providers) {
+                System.out.println(provider);
+            }
+            System.out.println("*******Provider*******");
+            System.out.println(locationManager2.getLastKnownLocation("network"));
+            if (locationManager2.getLastKnownLocation("network") == null)
+                MainActivity.network_location_status = true;
+            locationManager2.requestLocationUpdates("network", 1000, 0.0f, new LocationListener() {
+                public void onLocationChanged(Location location) {
+                    MainActivity.browser.loadUrl("javascript:(updateNetworkLocation(\"" + location.getLatitude() + "\", \"" + location.getLongitude() + "\"))");
+                    MainActivity.network_location_string = location.getLatitude() + "," + location.getLongitude();
+                    MainActivity.network_location_status = true;
+                }
+
+                public void onProviderDisabled(String str) {
+                }
+
+                public void onProviderEnabled(String str) {
+                }
+
+                public void onStatusChanged(String str, int i, Bundle bundle) {
+                }
+            });
+            if (locationManager2 != null && (lastKnownLocation = locationManager2.getLastKnownLocation("network")) != null) {
+                final double latitude = lastKnownLocation.getLatitude();
+                final double longitude = lastKnownLocation.getLongitude();
+                MainActivity.browser.loadUrl("javascript:(updateNetworkLocation(\"" + latitude + "\", \"" + longitude + "\"))");
+                MainActivity.network_location_string = latitude + "," + longitude;
+                MainActivity.network_location_status = true;
+            }
+        }
+    }
+
+    @SuppressLint("WrongConstant")
+    DisplayMetrics getScreenDisplay() {
+        WindowManager windowManager;
+        Display defaultDisplay;
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        if (!(getApplicationContext() == null || (windowManager = (WindowManager) getSystemService("window")) == null || (defaultDisplay = windowManager.getDefaultDisplay()) == null)) {
+            defaultDisplay.getMetrics(displayMetrics);
+        }
+        return displayMetrics;
+    }
+
 
 }
 
