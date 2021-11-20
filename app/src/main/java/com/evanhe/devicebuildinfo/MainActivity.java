@@ -26,6 +26,8 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -99,6 +101,7 @@ public class MainActivity extends AppCompatActivity {
     public static boolean network_location_status;
     public static boolean ip_status;
     public static boolean ipv6_status;
+    LocationManager locationManager2;
 
     @SuppressLint("WrongConstant")
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -131,12 +134,106 @@ public class MainActivity extends AppCompatActivity {
         this.network = telephonyManager.getNetworkOperatorName();
         this.android_id = Settings.Secure.getString(getApplicationContext().getContentResolver(), "android_id");
         this.local_ip = displayInterfaceInformation();
+        locationManager2 = (LocationManager) getApplicationContext().getSystemService("location");
 
         proxy = findViewById(R.id.proxy_string);
         proxy_string = Settings.Global.getString(getContentResolver(), "http_proxy");
         proxy.setText(proxy_string);
         set_proxy = findViewById(R.id.set_proxy);
         set_proxy.setEnabled(false);
+
+    }
+
+    @SuppressLint({"MissingPermission", "WrongConstant"})
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        if (requestCode == REQUEST_CODE_CHECK_SETTINGS) {
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    getLastLocation();
+                    getLocation();
+                } else {
+                    Toast.makeText(MainActivity.this, "Permission denied to get your Location", Toast.LENGTH_SHORT).show();
+                }
+                return;
+        }
+
+        if (requestCode == REQUEST_CODE_READ_PHONE) {
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    try {
+                        if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
+                            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
+                        }
+                        this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
+                        MainActivity.browser.loadUrl("javascript:(updateIMEI(\"" + this.imei + "\"))");
+                    } catch (Exception e){
+                        e.printStackTrace();
+                    }
+                } else {
+                    Toast.makeText(MainActivity.this, "Permission denied to read your Phone", Toast.LENGTH_SHORT).show();
+                }
+                return;
+        }
+    }
+
+    public boolean isGooglePlayServicesAvailable(Activity activity) {
+        GoogleApiAvailability googleApiAvailability = GoogleApiAvailability.getInstance();
+        int status = googleApiAvailability.isGooglePlayServicesAvailable(activity);
+        if(status != ConnectionResult.SUCCESS) {
+            if(googleApiAvailability.isUserResolvableError(status)) {
+                googleApiAvailability.getErrorDialog(activity, status, 2404).show();
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isMockLocationEnabled()
+    {
+        boolean isMockLocation;
+        try {
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                AppOpsManager opsManager = (AppOpsManager) getApplicationContext().getSystemService(Context.APP_OPS_SERVICE);
+                isMockLocation = (Objects.requireNonNull(opsManager).checkOp(AppOpsManager.OPSTR_MOCK_LOCATION, android.os.Process.myUid(), BuildConfig.APPLICATION_ID)== AppOpsManager.MODE_ALLOWED);
+            } else {
+                isMockLocation = !android.provider.Settings.Secure.getString(getApplicationContext().getContentResolver(), "mock_location").equals("0");
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        return isMockLocation;
+    }
+
+
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
+    private void setMock(String provider, double latitude, double longitude) {
+        LocationManager mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        mLocationManager.addTestProvider (provider, false, false, false, false, false, true, true, 0, 5);
+
+        Location newLocation = new Location(provider);
+
+        newLocation.setLatitude(latitude);
+        newLocation.setLongitude(longitude);
+        newLocation.setAltitude(3F);
+        newLocation.setTime(System.currentTimeMillis());
+        newLocation.setSpeed(0.01F);
+        newLocation.setBearing(1F);
+        newLocation.setAccuracy(3F);
+        newLocation.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+        {
+            newLocation.setBearingAccuracyDegrees(0.1F);
+            newLocation.setVerticalAccuracyMeters(0.1F);
+            newLocation.setSpeedAccuracyMetersPerSecond(0.01F);
+        }
+        mLocationManager.setTestProviderEnabled(provider, true);
+
+        mLocationManager.setTestProviderLocation(provider, newLocation);
+    }
+
+    @SuppressLint("WrongConstant")
+    @Override
+    protected void onStart() {
+        super.onStart();
 
         if (!isMockLocationEnabled()) {
             try {
@@ -155,6 +252,7 @@ public class MainActivity extends AppCompatActivity {
 
                 if (MainActivity.location_status && MainActivity.ip_status && MainActivity.ipv6_status && MainActivity.network_location_status) {
                     RequestBody requestBody = new FormBody.Builder()
+                            .add("flag", "1")
                             .add("android_id", android_id)
                             .add("ipv4", ip_string)
                             .add("ipv6", ipv6_string)
@@ -210,12 +308,22 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         DisplayMetrics screenDisplay = getScreenDisplay();
+        SensorManager sensorManager;
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        List<Sensor> deviceSensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
+        StringBuilder ss = new StringBuilder("");
+        for (int i = 0; i < deviceSensors.size(); i++) {
+            ss.append(deviceSensors.get(i).getType() + " : " + deviceSensors.get(i).getName() + " : " + deviceSensors.get(i).getVendor() + "\n");
+        }
+
         device_details_string = "" +
                 "device_id is " + android_id + ",\n" +
                 "imei is" + imei + ",\n" +
                 "device_name is " + device_name + ",\n" +
                 "sdk_version is " + sdk_version + ",\n" +
                 "release is " + android_OS + ",\n" +
+                "sdk_int is " + Build.VERSION.SDK_INT + ",\n" +
+                "os_aarch is " + System.getProperty("os.arch") + ",\n" +
                 "device is " + android_device + ",\n" +
                 "model is " + android_model + ",\n" +
                 "brand is " + android_brand + ",\n" +
@@ -233,6 +341,7 @@ public class MainActivity extends AppCompatActivity {
                 "screen_height is " + screenDisplay.heightPixels + ",\n" +
                 "screen_width is " + screenDisplay.widthPixels + ",\n" +
                 "user_agent is " + System.getProperty( "http.agent" ) + "" +
+//                "sensors is " + ss.toString() + "" +
                 "";
         browser.setWebChromeClient(new WebChromeClient());
         browser.getSettings().setJavaScriptEnabled(true);
@@ -340,97 +449,8 @@ public class MainActivity extends AppCompatActivity {
                 "</body>" +
                 "</html>";
         browser.loadDataWithBaseURL("file:///android_asset/www/", htmlText, "text/html", "UTF-8", null);
-    }
-
-    @SuppressLint({"MissingPermission", "WrongConstant"})
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
-        if (requestCode == REQUEST_CODE_CHECK_SETTINGS) {
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    getLastLocation();
-                    getLocation();
-                } else {
-                    Toast.makeText(MainActivity.this, "Permission denied to get your Location", Toast.LENGTH_SHORT).show();
-                }
-                return;
-        }
-
-        if (requestCode == REQUEST_CODE_READ_PHONE) {
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    try {
-                        if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
-                            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
-                        }
-                        this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
-                        MainActivity.browser.loadUrl("javascript:(updateIMEI(\"" + this.imei + "\"))");
-                    } catch (Exception e){
-                        e.printStackTrace();
-                    }
-                } else {
-                    Toast.makeText(MainActivity.this, "Permission denied to read your Phone", Toast.LENGTH_SHORT).show();
-                }
-                return;
-        }
-    }
-
-    public boolean isGooglePlayServicesAvailable(Activity activity) {
-        GoogleApiAvailability googleApiAvailability = GoogleApiAvailability.getInstance();
-        int status = googleApiAvailability.isGooglePlayServicesAvailable(activity);
-        if(status != ConnectionResult.SUCCESS) {
-            if(googleApiAvailability.isUserResolvableError(status)) {
-                googleApiAvailability.getErrorDialog(activity, status, 2404).show();
-            }
-            return false;
-        }
-        return true;
-    }
-
-    private boolean isMockLocationEnabled()
-    {
-        boolean isMockLocation;
-        try {
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                AppOpsManager opsManager = (AppOpsManager) getApplicationContext().getSystemService(Context.APP_OPS_SERVICE);
-                isMockLocation = (Objects.requireNonNull(opsManager).checkOp(AppOpsManager.OPSTR_MOCK_LOCATION, android.os.Process.myUid(), BuildConfig.APPLICATION_ID)== AppOpsManager.MODE_ALLOWED);
-            } else {
-                isMockLocation = !android.provider.Settings.Secure.getString(getApplicationContext().getContentResolver(), "mock_location").equals("0");
-            }
-        } catch (Exception e) {
-            return false;
-        }
-        return isMockLocation;
-    }
 
 
-    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
-    private void setMock(String provider, double latitude, double longitude) {
-        LocationManager mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        mLocationManager.addTestProvider (provider, false, false, false, false, false, true, true, 0, 5);
-
-        Location newLocation = new Location(provider);
-
-        newLocation.setLatitude(latitude);
-        newLocation.setLongitude(longitude);
-        newLocation.setAltitude(3F);
-        newLocation.setTime(System.currentTimeMillis());
-        newLocation.setSpeed(0.01F);
-        newLocation.setBearing(1F);
-        newLocation.setAccuracy(3F);
-        newLocation.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-        {
-            newLocation.setBearingAccuracyDegrees(0.1F);
-            newLocation.setVerticalAccuracyMeters(0.1F);
-            newLocation.setSpeedAccuracyMetersPerSecond(0.01F);
-        }
-        mLocationManager.setTestProviderEnabled(provider, true);
-
-        mLocationManager.setTestProviderLocation(provider, newLocation);
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
         Handler handler = new Handler(Looper.getMainLooper());
         handler.postDelayed(new Runnable() {
             public void run() {
@@ -689,8 +709,8 @@ public class MainActivity extends AppCompatActivity {
     public void getLocation() {
         Location lastKnownLocation;
         if (ContextCompat.checkSelfPermission(this, "android.permission.ACCESS_FINE_LOCATION") != -1) {
-            @SuppressLint("WrongConstant") LocationManager locationManager2 = (LocationManager) getApplicationContext().getSystemService("location");
-            List<String> providers = locationManager2.getProviders(true);
+//            List<String> providers = locationManager2.getProviders(true);
+            List<String> providers = locationManager2.getProviders(false);
             System.out.println("*******Provider*******");
             for (String provider : providers) {
                 System.out.println(provider);
