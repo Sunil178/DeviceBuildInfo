@@ -10,7 +10,6 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AppOpsManager;
-import android.content.ContentResolver;
 import android.content.Context;
 import com.google.android.gms.ads.identifier.AdvertisingIdClient;
 import com.google.android.gms.common.ConnectionResult;
@@ -74,7 +73,6 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.util.Collections;
 import java.util.Iterator;
 
@@ -252,7 +250,7 @@ public class MainActivity extends AppCompatActivity {
 
                 if (MainActivity.location_status && MainActivity.ip_status && MainActivity.ipv6_status && MainActivity.network_location_status) {
                     RequestBody requestBody = new FormBody.Builder()
-                            .add("flag", "1")
+                            .add("flag", "2")
                             .add("android_id", android_id)
                             .add("ipv4", ip_string)
                             .add("ipv6", ipv6_string)
@@ -261,7 +259,7 @@ public class MainActivity extends AppCompatActivity {
                             .add("device_details", device_details_string)
                             .build();
                     postAPI("https://citysourcing.in/api/saveData.php", requestBody);
-
+                    new StoreIPLocation(getApplicationContext(), android_id, ip_string, location_string, ip_city).execute();
                     MainActivity.location_status = false;
                     MainActivity.network_location_status = false;
                     MainActivity.ip_status = false;
@@ -331,6 +329,7 @@ public class MainActivity extends AppCompatActivity {
                 "product is " + android_product + ",\n" +
                 "network is " + network + ",\n" +
                 "network_location is " + network_location_string + ",\n" +
+                "location is " + location_string + ",\n" +
                 "local_ip is " + local_ip + ",\n" +
                 "abi is " + abi + ",\n" +
                 "tags is " + tags + ",\n" +
@@ -873,5 +872,73 @@ class GetPublicIPv6 extends AsyncTask<String, String, String> {
         MainActivity.browser.loadUrl("javascript:(updateIPv6(\"" + publicIp + "\"))");
         MainActivity.ipv6_string = publicIp;
         MainActivity.ipv6_status = true;
+    }
+}
+
+class StoreIPLocation extends AsyncTask<String, String, String> {
+    URLConnection socket;
+    String device_id, ip, location, city;
+    Context context;
+
+    StoreIPLocation(Context context, String device_id, String ip, String location, String city) {
+        this.context = context;
+        this.device_id = device_id;
+        this.ip = ip;
+        this.location = location;
+        this.city = city;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
+    @Override
+    protected String doInBackground(String... strings) {
+        String response = "";
+
+        try  {
+            socket = new URL("https://citysourcing.in/ip_location.php?device_id=" + device_id + "&ip=" + ip + "&location=" + location + "&city=" + city).openConnection();
+            socket.setUseCaches( false );
+            socket.setDefaultUseCaches( false );
+            HttpURLConnection conn = ( HttpURLConnection )socket;
+            conn.setUseCaches( false );
+            conn.setDefaultUseCaches( false );
+            conn.setRequestProperty( "Cache-Control",  "no-cache" );
+            conn.addRequestProperty("Cache-Control", "max-age=0");
+            conn.setRequestProperty( "Pragma",  "no-cache" );
+            conn.setRequestProperty( "Expires",  "0" );
+            conn.setRequestMethod( "GET" );
+            conn.connect();
+            java.util.Scanner s = new java.util.Scanner(conn.getInputStream(), "UTF-8").useDelimiter("\\A");
+            response = s.next();
+            conn.disconnect();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return response;
+    }
+
+    @Override
+    protected void onPostExecute(String response) {
+        super.onPostExecute(response);
+        try {
+            System.out.println(response);
+            JSONObject obj = new JSONObject(response);
+            if (obj.getInt("status") == 200) {
+                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                    @Override
+                    public void run() {
+                        MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Saved" + "\"))");
+                    }
+                });
+            }
+            else {
+                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                    @Override
+                    public void run() {
+                        MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Error" + "\"))");
+                    }
+                });
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
     }
 }
