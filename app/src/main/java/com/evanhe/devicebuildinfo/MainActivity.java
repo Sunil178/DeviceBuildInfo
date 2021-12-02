@@ -342,7 +342,7 @@ public class MainActivity extends AppCompatActivity {
                 "screen_height is " + screenDisplay.heightPixels + ",\n" +
                 "screen_width is " + screenDisplay.widthPixels + ",\n" +
                 "user_agent is " + System.getProperty( "http.agent" ) + "" +
-//                "sensors is " + ss.toString() + "" +
+                "sensors is " + ss.toString() + "" +
                 "";
         browser.setWebChromeClient(new WebChromeClient());
         browser.getSettings().setJavaScriptEnabled(true);
