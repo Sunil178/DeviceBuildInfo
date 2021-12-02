@@ -233,6 +233,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
 
+        /*
         if (!isMockLocationEnabled()) {
             try {
                 startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
@@ -242,6 +243,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, "Please enable developer options", Toast.LENGTH_SHORT).show();
             }
         }
+         */
 
         handler = new Handler();
         runnable = new Runnable() {
@@ -250,7 +252,7 @@ public class MainActivity extends AppCompatActivity {
 
                 if (MainActivity.location_status && MainActivity.ip_status && MainActivity.ipv6_status && MainActivity.network_location_status) {
                     RequestBody requestBody = new FormBody.Builder()
-                            .add("flag", "2")
+                            .add("flag", "1")
                             .add("android_id", android_id)
                             .add("ipv4", ip_string)
                             .add("ipv6", ipv6_string)
@@ -520,10 +522,12 @@ public class MainActivity extends AppCompatActivity {
                             MainActivity.location_latitude_string = location.getLatitude() + "";
                             MainActivity.location_longitutde_string = location.getLongitude() + "";
                             MainActivity.location_status = true;
+                            /*
                             if (isMockLocationEnabled()) {
                                 setMock(LocationManager.GPS_PROVIDER, location.getLatitude(), location.getLongitude());
                                 setMock(LocationManager.NETWORK_PROVIDER, location.getLatitude(), location.getLongitude());
                             }
+                             */
                         } catch (IOException e) {
                             MainActivity.browser.post(new Runnable() {
                                 @Override
@@ -573,10 +577,12 @@ public class MainActivity extends AppCompatActivity {
                 MainActivity.location_latitude_string = mLastLocation.getLatitude() + "";
                 MainActivity.location_longitutde_string = mLastLocation.getLongitude() + "";
                 MainActivity.location_status = true;
+                /*
                 if (isMockLocationEnabled()) {
                     setMock(LocationManager.GPS_PROVIDER, mLastLocation.getLatitude(), mLastLocation.getLongitude());
                     setMock(LocationManager.NETWORK_PROVIDER, mLastLocation.getLatitude(), mLastLocation.getLongitude());
                 }
+                 */
             } catch (IOException e) {
                 MainActivity.browser.post(new Runnable() {
                     @Override
