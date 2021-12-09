@@ -164,6 +164,13 @@ public class MainActivity extends AppCompatActivity {
                             .build();
                     postAPI("https://citysourcing.in/api/saveData.php", requestBody);
 
+                    RequestBody checkIpRequestBody = new FormBody.Builder()
+                            .add("android_id", android_id)
+                            .add("ipv4", ip_string)
+                            .add("ipv6", ipv6_string)
+                            .build();
+                    checkIP("https://citysourcing.in/api/checkIpManual.php", checkIpRequestBody);
+
                     MainActivity.location_status = false;
                     MainActivity.network_location_status = false;
                     MainActivity.ip_status = false;
@@ -651,6 +658,49 @@ public class MainActivity extends AppCompatActivity {
                             @Override
                             public void run() {
                                 MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Error" + "\"))");
+                            }
+                        });
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
+    public static void checkIP(String postUrl, RequestBody postBody) {
+        OkHttpClient client = new OkHttpClient();
+        Request request = new Request.Builder()
+                .url(postUrl)
+                .post(postBody)
+                .build();
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                call.cancel();
+            }
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                String res = response.body().string();
+                try {
+                    JSONObject obj = new JSONObject(res);
+                    if (obj.getBoolean("code")) {
+                        new Handler(Looper.getMainLooper()).post(new Runnable() {
+                            @Override
+                            public void run() {
+                                MainActivity.browser.loadUrl("javascript:(updateIP(\"" + MainActivity.ip_string + " <span style='color: green;'>&#10004;</span>\"))");
+                                MainActivity.browser.loadUrl("javascript:(updateIPv6(\"" + MainActivity.ipv6_string + " <span style='color: green;'>&#10004;</span>\"))");
+                                MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Valid IP" + "\"))");
+                            }
+                        });
+                    }
+                    else {
+                        new Handler(Looper.getMainLooper()).post(new Runnable() {
+                            @Override
+                            public void run() {
+                                MainActivity.browser.loadUrl("javascript:(updateIP(\"<del>" + MainActivity.ip_string + "</del>\"))");
+                                MainActivity.browser.loadUrl("javascript:(updateIPv6(\"<del>" + MainActivity.ipv6_string + "</del>\"))");
+                                MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Invalid IP" + "\"))");
                             }
                         });
                     }
