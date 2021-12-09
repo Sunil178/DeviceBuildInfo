@@ -339,6 +339,7 @@ public class MainActivity extends AppCompatActivity {
                 "function copyText(e) {" +
                 "  if (e.target.tagName == \"I\") {" +
                 "    elementData = e.target.innerText;" +
+                "    elementData = elementData.replace(\" ✔\", \"\");" +
                 "    copyTextToClipboard(elementData);" +
                 "  }" +
                 "}" +
