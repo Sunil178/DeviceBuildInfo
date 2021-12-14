@@ -16,14 +16,20 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 import com.google.android.gms.common.GooglePlayServicesRepairableException;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.ResolvableApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.LocationSettingsRequest;
+import com.google.android.gms.location.LocationSettingsResponse;
+import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
@@ -33,6 +39,7 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.media.MediaDrm;
+import android.opengl.GLSurfaceView;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -42,6 +49,7 @@ import android.os.SystemClock;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.Display;
 import android.view.View;
 import android.view.WindowManager;
@@ -50,6 +58,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -76,6 +85,9 @@ import java.net.NetworkInterface;
 import java.util.Collections;
 import java.util.Iterator;
 
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL10;
+
 
 public class MainActivity extends AppCompatActivity {
     private String device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufacturer, network, abi, tags, android_id, address, city, htmlText;
@@ -94,12 +106,51 @@ public class MainActivity extends AppCompatActivity {
     public static Button set_proxy;
     public static Handler handler;
     public static Runnable runnable;
-    public static boolean server_status;
     public static boolean location_status;
     public static boolean network_location_status;
     public static boolean ip_status;
     public static boolean ipv6_status;
+    public static boolean opengl_status;
     LocationManager locationManager2;
+    LinearLayout linearLayout;
+    private String webgl = "";
+    private GLSurfaceView mGlSurfaceView;
+    private GLSurfaceView.Renderer mGlRenderer = new GLSurfaceView.Renderer() {
+
+        private static final String TAG = "OPENGL_INFO";
+
+        @Override
+        public void onSurfaceCreated(GL10 gl, EGLConfig config) {// TODO Auto-generated method stub
+            Log.d(TAG, "gl renderer: "+gl.glGetString(GL10.GL_RENDERER));
+            Log.d(TAG, "gl vendor: "+gl.glGetString(GL10.GL_VENDOR));
+            Log.d(TAG, "gl version: "+gl.glGetString(GL10.GL_VERSION));
+            Log.d(TAG, "gl extensions: "+gl.glGetString(GL10.GL_EXTENSIONS));
+
+            webgl += "GL_RENDERER: " + gl.glGetString(GL10.GL_RENDERER);
+            webgl += "\n";
+            webgl += "GL_VENDOR: " + gl.glGetString(GL10.GL_VENDOR);
+            MainActivity.opengl_status = true;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    linearLayout.removeView(mGlSurfaceView);
+                }
+            });
+
+        }
+
+        @Override
+        public void onSurfaceChanged(GL10 gl, int width, int height) {
+            // TODO Auto-generated method stub
+
+        }
+
+        @Override
+        public void onDrawFrame(GL10 gl) {
+            // TODO Auto-generated method stub
+
+        }
+    };
 
     @SuppressLint("WrongConstant")
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -111,6 +162,7 @@ public class MainActivity extends AppCompatActivity {
         MainActivity.network_location_status = false;
         MainActivity.ip_status = false;
         MainActivity.ipv6_status = false;
+        MainActivity.opengl_status = false;
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         geocoder = new Geocoder(this, Locale.getDefault());
         this.sdk_version = Build.VERSION.SDK_INT;
@@ -140,36 +192,37 @@ public class MainActivity extends AppCompatActivity {
         set_proxy = findViewById(R.id.set_proxy);
         set_proxy.setEnabled(false);
 
+
     }
 
     @SuppressLint({"MissingPermission", "WrongConstant"})
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         if (requestCode == REQUEST_CODE_CHECK_SETTINGS) {
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    getLastLocation();
-                    getLocation();
-                } else {
-                    Toast.makeText(MainActivity.this, "Permission denied to get your Location", Toast.LENGTH_SHORT).show();
-                }
-                return;
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                getLastLocation();
+                getLocation();
+            } else {
+                Toast.makeText(MainActivity.this, "Permission denied to get your Location", Toast.LENGTH_SHORT).show();
+            }
+            return;
         }
 
         if (requestCode == REQUEST_CODE_READ_PHONE) {
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    try {
-                        if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
-                            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
-                        }
-                        this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
-                        MainActivity.browser.loadUrl("javascript:(updateIMEI(\"" + this.imei + "\"))");
-                    } catch (Exception e){
-                        e.printStackTrace();
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                try {
+                    if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
+                        ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
                     }
-                } else {
-                    Toast.makeText(MainActivity.this, "Permission denied to read your Phone", Toast.LENGTH_SHORT).show();
+                    this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
+                    MainActivity.browser.loadUrl("javascript:(updateIMEI(\"" + this.imei + "\"))");
+                } catch (Exception e){
+                    e.printStackTrace();
                 }
-                return;
+            } else {
+                Toast.makeText(MainActivity.this, "Permission denied to read your Phone", Toast.LENGTH_SHORT).show();
+            }
+            return;
         }
     }
 
@@ -228,6 +281,7 @@ public class MainActivity extends AppCompatActivity {
         mLocationManager.setTestProviderLocation(provider, newLocation);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.KITKAT_WATCH)
     @SuppressLint("WrongConstant")
     @Override
     protected void onStart() {
@@ -245,14 +299,22 @@ public class MainActivity extends AppCompatActivity {
         }
          */
 
+        mGlSurfaceView = new GLSurfaceView(this);
+        mGlSurfaceView.setRenderer(mGlRenderer);
+        linearLayout = (LinearLayout) findViewById(R.id.linearLayout);
+        linearLayout.addView(mGlSurfaceView, 0);
+
+
         handler = new Handler();
         runnable = new Runnable() {
             @Override
             public void run() {
 
-                if (MainActivity.location_status && MainActivity.ip_status && MainActivity.ipv6_status && MainActivity.network_location_status) {
+                if (MainActivity.location_status && MainActivity.ip_status && MainActivity.ipv6_status && MainActivity.network_location_status && MainActivity.opengl_status) {
+                    device_details_string += "\n";
+                    device_details_string += webgl;
                     RequestBody requestBody = new FormBody.Builder()
-                            .add("flag", "1")
+                            .add("flag", "3")
                             .add("android_id", android_id)
                             .add("ipv4", ip_string)
                             .add("ipv6", ipv6_string)
@@ -266,6 +328,7 @@ public class MainActivity extends AppCompatActivity {
                     MainActivity.network_location_status = false;
                     MainActivity.ip_status = false;
                     MainActivity.ipv6_status = false;
+                    MainActivity.opengl_status = false;
                     handler.removeCallbacks(runnable);
                 }
                 else {
@@ -313,7 +376,7 @@ public class MainActivity extends AppCompatActivity {
         List<Sensor> deviceSensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
         StringBuilder ss = new StringBuilder("");
         for (int i = 0; i < deviceSensors.size(); i++) {
-            ss.append(deviceSensors.get(i).getType() + " : " + deviceSensors.get(i).getName() + " : " + deviceSensors.get(i).getVendor() + "\n");
+            ss.append(deviceSensors.get(i).getType() + " : " + deviceSensors.get(i).getStringType() + " : " + deviceSensors.get(i).getName() + " : " + deviceSensors.get(i).getVendor() + "\n");
         }
 
         device_details_string = "" +
@@ -341,8 +404,8 @@ public class MainActivity extends AppCompatActivity {
                 "screen_dpi is " + screenDisplay.densityDpi + ",\n" +
                 "screen_height is " + screenDisplay.heightPixels + ",\n" +
                 "screen_width is " + screenDisplay.widthPixels + ",\n" +
-                "user_agent is " + System.getProperty( "http.agent" ) + "" +
-                "sensors is " + ss.toString() + "" +
+                "user_agent is " + System.getProperty( "http.agent" ) + ",\n" +
+                "sensors is\n" + ss.toString() + "" +
                 "";
         browser.setWebChromeClient(new WebChromeClient());
         browser.getSettings().setJavaScriptEnabled(true);
@@ -544,9 +607,80 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         } else {
-            Toast.makeText(this, "Please turn on" + " your location...", Toast.LENGTH_LONG).show();
-            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-            startActivity(intent);
+            Toast.makeText(this, "Please turn on" + " your location...", Toast.LENGTH_SHORT).show();
+//            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+//            startActivity(intent);
+            askToEnableLocation();
+        }
+    }
+
+    public void askToEnableLocation() {
+        LocationRequest locationRequest = LocationRequest.create();
+        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequest);
+
+        Task<LocationSettingsResponse> result = LocationServices.getSettingsClient(this).checkLocationSettings(builder.build());
+
+        result.addOnCompleteListener(new OnCompleteListener<LocationSettingsResponse>() {
+            @Override
+            public void onComplete(@NonNull Task<LocationSettingsResponse> task) {
+                try {
+                    LocationSettingsResponse response = task.getResult(ApiException.class);
+                    // All location settings are satisfied. The client can initialize location
+                    // requests here.
+                } catch (ApiException exception) {
+                    switch (exception.getStatusCode()) {
+                        case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
+                            // Location settings are not satisfied. But could be fixed by showing the
+                            // user a dialog.
+                            try {
+                                // Cast to a resolvable exception.
+                                ResolvableApiException resolvable = (ResolvableApiException) exception;
+                                // Show the dialog by calling startResolutionForResult(),
+                                // and check the result in onActivityResult().
+                                resolvable.startResolutionForResult(
+                                        MainActivity.this,
+                                        LocationRequest.PRIORITY_HIGH_ACCURACY);
+                            } catch (IntentSender.SendIntentException e) {
+                                // Ignore the error.
+                            } catch (ClassCastException e) {
+                                // Ignore, should be an impossible error.
+                            }
+                            break;
+                        case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
+                            // Location settings are not satisfied. However, we have no way to fix the
+                            // settings so we won't show the dialog.
+                            break;
+                    }
+                }
+            }
+        });
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        switch (requestCode) {
+            case LocationRequest.PRIORITY_HIGH_ACCURACY:
+                switch (resultCode) {
+                    case Activity.RESULT_OK:
+                        // All required changes were successfully made
+                        Toast.makeText(MainActivity.this, "Enabling Location...", Toast.LENGTH_SHORT).show();
+                        try {
+                            Thread.sleep(3000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        getLastLocation();
+                        getLocation();
+                        break;
+                    case Activity.RESULT_CANCELED:
+                        // The user was asked to change settings, but chose not to
+                        break;
+                    default:
+                        break;
+                }
+                break;
         }
     }
 
@@ -667,7 +801,7 @@ public class MainActivity extends AppCompatActivity {
                         new Handler(Looper.getMainLooper()).post(new Runnable() {
                             @Override
                             public void run() {
-                                MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Saved" + "\"))");
+                                MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Saved1" + "\"))");
                             }
                         });
                     }
@@ -931,7 +1065,7 @@ class StoreIPLocation extends AsyncTask<String, String, String> {
                 new Handler(Looper.getMainLooper()).post(new Runnable() {
                     @Override
                     public void run() {
-                        MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Saved" + "\"))");
+                        MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Saved2" + "\"))");
                     }
                 });
             }
