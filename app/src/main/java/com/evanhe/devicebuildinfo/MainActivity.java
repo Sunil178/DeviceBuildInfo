@@ -92,6 +92,7 @@ import javax.microedition.khronos.opengles.GL10;
 public class MainActivity extends AppCompatActivity {
     private String device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufacturer, network, abi, tags, android_id, address, city, htmlText;
     private String imei = "Not Supported";
+    private String sensor_data = "";
     public static String proxy_string, device_details_string = "", network_location_string = "", location_string = "", location_latitude_string = "", location_longitutde_string = "", ip_string = "", ipv6_string = "", ip_city = "", local_ip = "";
     private boolean googlePlayServicesAvailable;
     private int sdk_version;
@@ -314,7 +315,7 @@ public class MainActivity extends AppCompatActivity {
                     device_details_string += "\n";
                     device_details_string += webgl;
                     RequestBody requestBody = new FormBody.Builder()
-                            .add("flag", "10")
+                            .add("flag", "0")
                             .add("android_id", android_id)
                             .add("ipv4", ip_string)
                             .add("ipv6", ipv6_string)
@@ -377,6 +378,13 @@ public class MainActivity extends AppCompatActivity {
         StringBuilder ss = new StringBuilder("");
         for (int i = 0; i < deviceSensors.size(); i++) {
             ss.append(deviceSensors.get(i).getType() + " : " + deviceSensors.get(i).getStringType() + " : " + deviceSensors.get(i).getName() + " : " + deviceSensors.get(i).getVendor() + "\n");
+            if (deviceSensors.get(i).getType() == 1)
+                sensor_data += "<br><br><b>Accelerometer:</b> <i>" + deviceSensors.get(i).getName() + " : " + deviceSensors.get(i).getVendor() + "</i>";
+            else if (deviceSensors.get(i).getType() == 2) {
+                sensor_data += "<br><br><b>Magnetometer:</b> <i>" + deviceSensors.get(i).getName() + " : " + deviceSensors.get(i).getVendor() + "</i>";
+            }
+            else if (deviceSensors.get(i).getType() == 4)
+                sensor_data += "<br><br><b>Gyroscope:</b> <i>" + deviceSensors.get(i).getName() + " : " + deviceSensors.get(i).getVendor() + "</i>";
         }
 
         device_details_string = "" +
@@ -438,8 +446,7 @@ public class MainActivity extends AppCompatActivity {
                 "text-align: center;" +
                 "margin-top: 50%;" +
                 "}" +
-                "</style></head><body><span style='display: none;'><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><br><br><b>Local IP:</b> <i>" + local_ip + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...</span><span id='ipregion'><br><br><b>IP Region:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='network_location'><br><br><b>Network Location:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span>" + "<br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i></span>" +
-                "<h1>Pranav Koli</h1>" +
+                "</style></head><body><span><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><br><br><b>Local IP:</b> <i>" + local_ip + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...</span><span id='ipregion'><br><br><b>IP Region:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='network_location'><br><br><b>Network Location:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span>" + "<br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i><br><br><b>Uptime Millis:</b> <i>" + SystemClock.uptimeMillis() + "</i><br><br><b>Elapsed Realtime:</b> <i>" + SystemClock.elapsedRealtime() + "</i>" + sensor_data + "</span>" +
                 "<script type=\"text/javascript\">" +
                 "function updateGadid(gid) {" +
                 "document.getElementById('gadid').innerHTML = \"<br><br><b>AD id:</b> <i>\" + gid + \"</i>\";" +
@@ -806,8 +813,7 @@ public class MainActivity extends AppCompatActivity {
                         new Handler(Looper.getMainLooper()).post(new Runnable() {
                             @Override
                             public void run() {
-//                                MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Saved1" + "\"))");
-                                MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Test no. 1 passed" + "\"))");
+                                MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Saved1" + "\"))");
                             }
                         });
                     }
@@ -1071,8 +1077,7 @@ class StoreIPLocation extends AsyncTask<String, String, String> {
                 new Handler(Looper.getMainLooper()).post(new Runnable() {
                     @Override
                     public void run() {
-//                        MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Saved2" + "\"))");
-                        MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Test no. 2 passed" + "\"))");
+                        MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Saved2" + "\"))");
                     }
                 });
             }
