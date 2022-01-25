@@ -1,5 +1,7 @@
 package com.evanhe.devicebuildinfo;
 
+import static android.os.Environment.getExternalStorageDirectory;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -28,6 +30,8 @@ import com.google.android.gms.location.LocationSettingsResponse;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.scottyab.rootbeer.RootBeer;
+
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
@@ -62,6 +66,9 @@ import android.widget.LinearLayout;
 import android.widget.Toast;
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
@@ -100,6 +107,8 @@ public class MainActivity extends AppCompatActivity {
     public static WebView browser;
     public static int REQUEST_CODE_CHECK_SETTINGS = 101;
     public static int REQUEST_CODE_READ_PHONE = 100;
+    public static int REQUEST_CODE_WRITE_STORAGE = 102;
+    RootBeer rootBeer;
     FusedLocationProviderClient mFusedLocationClient;
     Geocoder geocoder;
     List<Address> addresses;
@@ -196,6 +205,17 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+
+    public void writeStringAsFile(String fileContents, String fileName) {
+        try {
+            FileWriter out = new FileWriter(new File(getExternalStorageDirectory(), fileName));
+            out.write(fileContents);
+            out.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     @SuppressLint({"MissingPermission", "WrongConstant"})
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
@@ -203,6 +223,14 @@ public class MainActivity extends AppCompatActivity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 getLastLocation();
                 getLocation();
+
+                if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ) {
+                    ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE_WRITE_STORAGE);
+                }
+                else {
+                    writeStringAsFile(android_id, "device_id.txt");
+                }
+
             } else {
                 Toast.makeText(MainActivity.this, "Permission denied to get your Location", Toast.LENGTH_SHORT).show();
             }
@@ -225,6 +253,16 @@ public class MainActivity extends AppCompatActivity {
             }
             return;
         }
+
+        if (requestCode == REQUEST_CODE_WRITE_STORAGE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                writeStringAsFile(android_id, "device_id.txt");
+            } else {
+                Toast.makeText(MainActivity.this, "Write storage permission failed", Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
+
     }
 
     public boolean isGooglePlayServicesAvailable(Activity activity) {
@@ -315,7 +353,7 @@ public class MainActivity extends AppCompatActivity {
                     device_details_string += "\n";
                     device_details_string += webgl;
                     RequestBody requestBody = new FormBody.Builder()
-                            .add("flag", "0")
+                            .add("flag", "2")
                             .add("android_id", android_id)
                             .add("ipv4", ip_string)
                             .add("ipv6", ipv6_string)
@@ -346,6 +384,12 @@ public class MainActivity extends AppCompatActivity {
             else {
                 this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
             }
+            if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ) {
+                ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE_WRITE_STORAGE);
+            }
+            else {
+                writeStringAsFile(android_id, "device_id.txt");
+            }
         } catch (Exception e){
             e.printStackTrace();
         }
@@ -355,6 +399,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 try {
+
                     set_proxy.setEnabled(true);
                     new GetPublicIP().execute();
                     new GetPublicIPv6().execute();
@@ -386,6 +431,8 @@ public class MainActivity extends AppCompatActivity {
             else if (deviceSensors.get(i).getType() == 4)
                 sensor_data += "<br><br><b>Gyroscope:</b> <i>" + deviceSensors.get(i).getName() + " : " + deviceSensors.get(i).getVendor() + "</i>";
         }
+
+        rootBeer = new RootBeer(getApplicationContext());
 
         device_details_string = "" +
                 "device_id is " + android_id + ",\n" +
@@ -446,7 +493,7 @@ public class MainActivity extends AppCompatActivity {
                 "text-align: center;" +
                 "margin-top: 50%;" +
                 "}" +
-                "</style></head><body><span><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><br><br><b>Local IP:</b> <i>" + local_ip + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...</span><span id='ipregion'><br><br><b>IP Region:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='network_location'><br><br><b>Network Location:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span>" + "<br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i><br><br><b>Uptime Millis:</b> <i>" + SystemClock.uptimeMillis() + "</i><br><br><b>Elapsed Realtime:</b> <i>" + SystemClock.elapsedRealtime() + "</i>" + sensor_data + "</span>" +
+                "</style></head><body><span><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><br><br><b>Local IP:</b> <i>" + local_ip + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...</span><span id='ipregion'><br><br><b>IP Region:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='network_location'><br><br><b>Network Location:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span>" + "<br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i><br><br><b>Is Rooted:</b> <i>" + rootBeer.isRooted() + "</i><br><br><b>Uptime Millis:</b> <i>" + SystemClock.uptimeMillis() + "</i><br><br><b>Elapsed Realtime:</b> <i>" + SystemClock.elapsedRealtime() + "</i>" + sensor_data + "</span>" +
                 "<script type=\"text/javascript\">" +
                 "function updateGadid(gid) {" +
                 "document.getElementById('gadid').innerHTML = \"<br><br><b>AD id:</b> <i>\" + gid + \"</i>\";" +
@@ -906,7 +953,6 @@ public class MainActivity extends AppCompatActivity {
         }
         return displayMetrics;
     }
-
 
 }
 
