@@ -239,23 +239,6 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
-    private boolean isMockLocationEnabled()
-    {
-        boolean isMockLocation;
-        try {
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                AppOpsManager opsManager = (AppOpsManager) getApplicationContext().getSystemService(Context.APP_OPS_SERVICE);
-                isMockLocation = (Objects.requireNonNull(opsManager).checkOp(AppOpsManager.OPSTR_MOCK_LOCATION, android.os.Process.myUid(), BuildConfig.APPLICATION_ID)== AppOpsManager.MODE_ALLOWED);
-            } else {
-                isMockLocation = !android.provider.Settings.Secure.getString(getApplicationContext().getContentResolver(), "mock_location").equals("0");
-            }
-        } catch (Exception e) {
-            return false;
-        }
-        return isMockLocation;
-    }
-
-
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
     private void setMock(String provider, double latitude, double longitude) {
         LocationManager mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
@@ -287,18 +270,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-
-        /*
-        if (!isMockLocationEnabled()) {
-            try {
-                startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-                Toast.makeText(MainActivity.this, "Please enable developer options", Toast.LENGTH_SHORT).show();
-            }
-        }
-         */
 
         mGlSurfaceView = new GLSurfaceView(this);
         mGlSurfaceView.setRenderer(mGlRenderer);
@@ -597,12 +568,6 @@ public class MainActivity extends AppCompatActivity {
                             MainActivity.location_latitude_string = location.getLatitude() + "";
                             MainActivity.location_longitutde_string = location.getLongitude() + "";
                             MainActivity.location_status = true;
-                            /*
-                            if (isMockLocationEnabled()) {
-                                setMock(LocationManager.GPS_PROVIDER, location.getLatitude(), location.getLongitude());
-                                setMock(LocationManager.NETWORK_PROVIDER, location.getLatitude(), location.getLongitude());
-                            }
-                             */
                         } catch (IOException e) {
                             MainActivity.browser.post(new Runnable() {
                                 @Override
@@ -723,12 +688,6 @@ public class MainActivity extends AppCompatActivity {
                 MainActivity.location_latitude_string = mLastLocation.getLatitude() + "";
                 MainActivity.location_longitutde_string = mLastLocation.getLongitude() + "";
                 MainActivity.location_status = true;
-                /*
-                if (isMockLocationEnabled()) {
-                    setMock(LocationManager.GPS_PROVIDER, mLastLocation.getLatitude(), mLastLocation.getLongitude());
-                    setMock(LocationManager.NETWORK_PROVIDER, mLastLocation.getLatitude(), mLastLocation.getLongitude());
-                }
-                 */
             } catch (IOException e) {
                 MainActivity.browser.post(new Runnable() {
                     @Override
