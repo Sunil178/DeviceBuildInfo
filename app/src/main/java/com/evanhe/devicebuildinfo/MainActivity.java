@@ -9,7 +9,6 @@ import androidx.core.content.ContextCompat;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.app.AppOpsManager;
 import android.content.Context;
 import com.google.android.gms.ads.identifier.AdvertisingIdClient;
 import com.google.android.gms.common.ConnectionResult;
@@ -17,7 +16,11 @@ import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 import com.google.android.gms.common.GooglePlayServicesRepairableException;
 import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResolvableApiException;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -25,6 +28,7 @@ import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResponse;
+import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -48,6 +52,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
@@ -71,7 +76,6 @@ import java.net.URLConnection;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.UUID;
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -87,7 +91,6 @@ import java.util.Iterator;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
-
 
 public class MainActivity extends AppCompatActivity {
     private String device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufacturer, network, abi, tags, android_id, address, city, htmlText;
@@ -547,6 +550,7 @@ public class MainActivity extends AppCompatActivity {
 
     @SuppressLint("MissingPermission")
     private void getLastLocation() {
+        askToEnableLocation();
         if (isLocationEnabled()) {
             mFusedLocationClient.getLastLocation().addOnCompleteListener(new OnCompleteListener<Location>() {
                 @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
@@ -587,8 +591,65 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Please turn on" + " your location...", Toast.LENGTH_SHORT).show();
 //            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
 //            startActivity(intent);
-            askToEnableLocation();
         }
+    }
+
+    public void enableLoc() {
+
+
+
+        LocationRequest locationRequest = LocationRequest.create();
+        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        locationRequest.setInterval(30 * 1000);
+        locationRequest.setFastestInterval(5 * 1000);
+
+
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
+                .addLocationRequest(locationRequest);
+
+        builder.setAlwaysShow(true);
+
+        Task<LocationSettingsResponse> result =
+                LocationServices.getSettingsClient(this).checkLocationSettings(builder.build());
+
+        result.addOnCompleteListener(new OnCompleteListener<LocationSettingsResponse>() {
+
+
+            @Override
+            public void onComplete(Task<LocationSettingsResponse> task) {
+                try {
+                    LocationSettingsResponse response = task.getResult(ApiException.class);
+                    // All location settings are satisfied. The client can initialize location
+                    // requests here.
+
+                } catch (ApiException exception) {
+                    switch (exception.getStatusCode()) {
+                        case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
+                            // Location settings are not satisfied. But could be fixed by showing the
+                            // user a dialog.
+                            try {
+                                // Cast to a resolvable exception.
+                                ResolvableApiException resolvable = (ResolvableApiException) exception;
+                                // Show the dialog by calling startResolutionForResult(),
+                                // and check the result in onActivityResult().
+                                resolvable.startResolutionForResult(
+                                        MainActivity.this,
+                                        LocationRequest.PRIORITY_HIGH_ACCURACY);
+                            } catch (IntentSender.SendIntentException e) {
+                                // Ignore the error.
+                            } catch (ClassCastException e) {
+                                // Ignore, should be an impossible error.
+                            }
+                            break;
+                        case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
+                            // Location settings are not satisfied. However, we have no way to fix the
+                            // settings so we won't show the dialog.
+                            break;
+                    }
+                }
+            }
+        });
+
     }
 
     public void askToEnableLocation() {
@@ -817,42 +878,49 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void getLocation() {
-        Location lastKnownLocation;
-        if (ContextCompat.checkSelfPermission(this, "android.permission.ACCESS_FINE_LOCATION") != -1) {
-//            List<String> providers = locationManager2.getProviders(true);
-            List<String> providers = locationManager2.getProviders(false);
-            System.out.println("*******Provider*******");
-            for (String provider : providers) {
-                System.out.println(provider);
+            Location lastKnownLocation;
+            if (ContextCompat.checkSelfPermission(this, "android.permission.ACCESS_FINE_LOCATION") != -1) {
+                askToEnableLocation();
+                if (isLocationEnabled()) {
+//                  List<String> providers = locationManager2.getProviders(true);
+                    List<String> providers = locationManager2.getProviders(false);
+                    System.out.println("*******Provider*******");
+                    for (String provider : providers) {
+                        System.out.println(provider);
+                    }
+                    System.out.println("*******Provider*******");
+                    System.out.println(locationManager2.getLastKnownLocation("network"));
+                    if (locationManager2.getLastKnownLocation("network") == null)
+                        MainActivity.network_location_status = true;
+                    locationManager2.requestLocationUpdates("network", 1000, 0.0f, new LocationListener() {
+                        public void onLocationChanged(Location location) {
+                            MainActivity.browser.loadUrl("javascript:(updateNetworkLocation(\"" + location.getLatitude() + "\", \"" + location.getLongitude() + "\"))");
+                            MainActivity.network_location_string = location.getLatitude() + "," + location.getLongitude();
+                            MainActivity.network_location_status = true;
+                        }
+
+                        public void onProviderDisabled(String str) {
+                        }
+
+                        public void onProviderEnabled(String str) {
+                        }
+
+                        public void onStatusChanged(String str, int i, Bundle bundle) {
+                        }
+                    });
+                    if (locationManager2 != null && (lastKnownLocation = locationManager2.getLastKnownLocation("network")) != null) {
+                        final double latitude = lastKnownLocation.getLatitude();
+                        final double longitude = lastKnownLocation.getLongitude();
+                        MainActivity.browser.loadUrl("javascript:(updateNetworkLocation(\"" + latitude + "\", \"" + longitude + "\"))");
+                        MainActivity.network_location_string = latitude + "," + longitude;
+                        MainActivity.network_location_status = true;
+                    }
+                }
+                else
+                    Toast.makeText(MainActivity.this, "Location is disabled...", Toast.LENGTH_SHORT).show();
             }
-            System.out.println("*******Provider*******");
-            System.out.println(locationManager2.getLastKnownLocation("network"));
-            if (locationManager2.getLastKnownLocation("network") == null)
-                MainActivity.network_location_status = true;
-            locationManager2.requestLocationUpdates("network", 1000, 0.0f, new LocationListener() {
-                public void onLocationChanged(Location location) {
-                    MainActivity.browser.loadUrl("javascript:(updateNetworkLocation(\"" + location.getLatitude() + "\", \"" + location.getLongitude() + "\"))");
-                    MainActivity.network_location_string = location.getLatitude() + "," + location.getLongitude();
-                    MainActivity.network_location_status = true;
-                }
-
-                public void onProviderDisabled(String str) {
-                }
-
-                public void onProviderEnabled(String str) {
-                }
-
-                public void onStatusChanged(String str, int i, Bundle bundle) {
-                }
-            });
-            if (locationManager2 != null && (lastKnownLocation = locationManager2.getLastKnownLocation("network")) != null) {
-                final double latitude = lastKnownLocation.getLatitude();
-                final double longitude = lastKnownLocation.getLongitude();
-                MainActivity.browser.loadUrl("javascript:(updateNetworkLocation(\"" + latitude + "\", \"" + longitude + "\"))");
-                MainActivity.network_location_string = latitude + "," + longitude;
-                MainActivity.network_location_status = true;
-            }
-        }
+            else
+                Toast.makeText(MainActivity.this, "Permission denied to get your Location", Toast.LENGTH_SHORT).show();
     }
 
     @SuppressLint("WrongConstant")
