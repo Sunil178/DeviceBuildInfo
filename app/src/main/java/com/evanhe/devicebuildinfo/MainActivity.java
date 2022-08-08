@@ -105,6 +105,8 @@ public class MainActivity extends AppCompatActivity {
     public static Handler handler;
     public static Runnable runnable;
     public static boolean location_status;
+    public static boolean lat_long_status1 = true;
+    public static boolean lat_long_status2 = true;
     public static boolean network_location_status;
     public static boolean ip_status;
     public static boolean ipv6_status;
@@ -273,7 +275,6 @@ public class MainActivity extends AppCompatActivity {
         linearLayout = (LinearLayout) findViewById(R.id.linearLayout);
         linearLayout.addView(mGlSurfaceView, 0);
 
-
         handler = new Handler();
         runnable = new Runnable() {
             @Override
@@ -283,7 +284,7 @@ public class MainActivity extends AppCompatActivity {
                     device_details_string += "\n";
                     device_details_string += webgl;
                     RequestBody requestBody = new FormBody.Builder()
-                            .add("flag", "1")       // AUTO BOT
+                            .add("flag", "0")       // Generic
                             .add("android_id", android_id)
                             .add("ipv4", ip_string)
                             .add("ipv6", ipv6_string)
@@ -556,10 +557,12 @@ public class MainActivity extends AppCompatActivity {
                         requestNewLocationData();
                     } else {
                         try {
+                            MainActivity.lat_long_status1 = true;
+                            MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + location.getLatitude() + "\", \"" + location.getLongitude() + "\"))");
+                            MainActivity.lat_long_status1 = false;
                             addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
                             address = addresses.get(0).getAddressLine(0);
                             city = addresses.get(0).getLocality();
-                            MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + location.getLatitude() + "\", \"" + location.getLongitude() + "\"))");
                             MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
                             MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
                             MainActivity.location_string = location.getLatitude() + "," + location.getLongitude();
@@ -570,7 +573,8 @@ public class MainActivity extends AppCompatActivity {
                             MainActivity.browser.post(new Runnable() {
                                 @Override
                                 public void run() {
-                                    MainActivity.browser.loadUrl("javascript:(updateLocation(\"No Internet\", \"No Internet\"))");
+                                    if (MainActivity.lat_long_status1)
+                                        MainActivity.browser.loadUrl("javascript:(updateLocation(\"No Internet\", \"No Internet\"))");
                                     MainActivity.browser.loadUrl("javascript:(updateAddress(\"No Internet\"))");
                                     MainActivity.browser.loadUrl("javascript:(updateCity(\"No Internet\"))");
                                     MainActivity.handler.removeCallbacks(MainActivity.runnable);
@@ -586,64 +590,6 @@ public class MainActivity extends AppCompatActivity {
 //            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
 //            startActivity(intent);
         }
-    }
-
-    public void enableLoc() {
-
-
-
-        LocationRequest locationRequest = LocationRequest.create();
-        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        locationRequest.setInterval(30 * 1000);
-        locationRequest.setFastestInterval(5 * 1000);
-
-
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
-                .addLocationRequest(locationRequest);
-
-        builder.setAlwaysShow(true);
-
-        Task<LocationSettingsResponse> result =
-                LocationServices.getSettingsClient(this).checkLocationSettings(builder.build());
-
-        result.addOnCompleteListener(new OnCompleteListener<LocationSettingsResponse>() {
-
-
-            @Override
-            public void onComplete(Task<LocationSettingsResponse> task) {
-                try {
-                    LocationSettingsResponse response = task.getResult(ApiException.class);
-                    // All location settings are satisfied. The client can initialize location
-                    // requests here.
-
-                } catch (ApiException exception) {
-                    switch (exception.getStatusCode()) {
-                        case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
-                            // Location settings are not satisfied. But could be fixed by showing the
-                            // user a dialog.
-                            try {
-                                // Cast to a resolvable exception.
-                                ResolvableApiException resolvable = (ResolvableApiException) exception;
-                                // Show the dialog by calling startResolutionForResult(),
-                                // and check the result in onActivityResult().
-                                resolvable.startResolutionForResult(
-                                        MainActivity.this,
-                                        LocationRequest.PRIORITY_HIGH_ACCURACY);
-                            } catch (IntentSender.SendIntentException e) {
-                                // Ignore the error.
-                            } catch (ClassCastException e) {
-                                // Ignore, should be an impossible error.
-                            }
-                            break;
-                        case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
-                            // Location settings are not satisfied. However, we have no way to fix the
-                            // settings so we won't show the dialog.
-                            break;
-                    }
-                }
-            }
-        });
-
     }
 
     public void askToEnableLocation() {
@@ -698,6 +644,7 @@ public class MainActivity extends AppCompatActivity {
                     case Activity.RESULT_OK:
                         // All required changes were successfully made
                         Toast.makeText(MainActivity.this, "Enabling Location...", Toast.LENGTH_SHORT).show();
+                        set_proxy.performClick();
                         try {
                             Thread.sleep(3000);
                         } catch (InterruptedException e) {
@@ -733,10 +680,12 @@ public class MainActivity extends AppCompatActivity {
         public void onLocationResult(LocationResult locationResult) {
             Location mLastLocation = locationResult.getLastLocation();
             try {
+                MainActivity.lat_long_status2 = true;
+                MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + mLastLocation.getLatitude() + "\", \"" + mLastLocation.getLongitude() + "\"))");
+                MainActivity.lat_long_status2 = false;
                 addresses = geocoder.getFromLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude(), 1);
                 address = addresses.get(0).getAddressLine(0);
                 city = addresses.get(0).getLocality();
-                MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + mLastLocation.getLatitude() + "\", \"" + mLastLocation.getLongitude() + "\"))");
                 MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
                 MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
                 MainActivity.location_string = mLastLocation.getLatitude() + "," + mLastLocation.getLongitude();
@@ -747,7 +696,8 @@ public class MainActivity extends AppCompatActivity {
                 MainActivity.browser.post(new Runnable() {
                     @Override
                     public void run() {
-                        MainActivity.browser.loadUrl("javascript:(updateLocation(\"No Internet\", \"No Internet\"))");
+                        if (MainActivity.lat_long_status2)
+                            MainActivity.browser.loadUrl("javascript:(updateLocation(\"No Internet\", \"No Internet\"))");
                         MainActivity.browser.loadUrl("javascript:(updateAddress(\"No Internet\"))");
                         MainActivity.browser.loadUrl("javascript:(updateCity(\"No Internet\"))");
                         MainActivity.handler.removeCallbacks(MainActivity.runnable);
