@@ -16,12 +16,12 @@ import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 import com.google.android.gms.common.GooglePlayServicesRepairableException;
 import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResolvableApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResponse;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
@@ -35,7 +35,6 @@ import android.hardware.SensorManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
-import android.location.LocationListener;
 import android.location.LocationManager;
 import android.media.MediaDrm;
 import android.opengl.GLSurfaceView;
@@ -86,7 +85,7 @@ import java.util.Iterator;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
     private String device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufacturer, network, abi, tags, android_id, address, city, htmlText;
     private String imei = "Not Supported";
     private String sensor_data = "";
@@ -98,6 +97,9 @@ public class MainActivity extends AppCompatActivity {
     public static int REQUEST_CODE_CHECK_SETTINGS = 101;
     public static int REQUEST_CODE_READ_PHONE = 100;
     FusedLocationProviderClient mFusedLocationClient;
+    private GoogleApiClient mGoogleApiClient;
+    private Location mLastLocation;
+    LocationRequest mLocationRequest;
     Geocoder geocoder;
     List<Address> addresses;
     public static EditText proxy;
@@ -113,6 +115,7 @@ public class MainActivity extends AppCompatActivity {
     public static boolean opengl_status;
     LocationManager locationManager2;
     LinearLayout linearLayout;
+    private static final int REQUEST_CODE_RECOVER_PLAY_SERVICES = 200;
     private String webgl = "";
     private GLSurfaceView mGlSurfaceView;
     private GLSurfaceView.Renderer mGlRenderer = new GLSurfaceView.Renderer() {
@@ -185,23 +188,26 @@ public class MainActivity extends AppCompatActivity {
         this.android_id = Settings.Secure.getString(getApplicationContext().getContentResolver(), "android_id");
         this.local_ip = displayInterfaceInformation();
         locationManager2 = (LocationManager) getApplicationContext().getSystemService("location");
+//        if (this.googlePlayServicesAvailable) {
+            buildGoogleApiClient();
+            createLocationRequest();
+//        }
 
         proxy = findViewById(R.id.proxy_string);
         proxy_string = Settings.Global.getString(getContentResolver(), "http_proxy");
         proxy.setText(proxy_string);
         set_proxy = findViewById(R.id.set_proxy);
         set_proxy.setEnabled(false);
-
-
     }
 
     @SuppressLint({"MissingPermission", "WrongConstant"})
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_CODE_CHECK_SETTINGS) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                getLastLocation();
                 getLocation();
+                gpsConnect();
             } else {
                 Toast.makeText(MainActivity.this, "Permission denied to get your Location", Toast.LENGTH_SHORT).show();
             }
@@ -211,12 +217,12 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == REQUEST_CODE_READ_PHONE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 try {
-                    if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
-                        ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
+                    if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
                     }
                     this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
                     MainActivity.browser.loadUrl("javascript:(updateIMEI(\"" + this.imei + "\"))");
-                } catch (Exception e){
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             } else {
@@ -229,39 +235,15 @@ public class MainActivity extends AppCompatActivity {
     public boolean isGooglePlayServicesAvailable(Activity activity) {
         GoogleApiAvailability googleApiAvailability = GoogleApiAvailability.getInstance();
         int status = googleApiAvailability.isGooglePlayServicesAvailable(activity);
+        System.out.println("&&&&&&&&&&&&&&&&&&&&&&&&: isGooglePlayServicesAvailable :    " + status);
+        googleApiAvailability.makeGooglePlayServicesAvailable(this);
         if(status != ConnectionResult.SUCCESS) {
             if(googleApiAvailability.isUserResolvableError(status)) {
-                googleApiAvailability.getErrorDialog(activity, status, 2404).show();
+//                googleApiAvailability.getErrorDialog(activity, status, REQUEST_CODE_RECOVER_PLAY_SERVICES).show();
             }
             return false;
         }
         return true;
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
-    private void setMock(String provider, double latitude, double longitude) {
-        LocationManager mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        mLocationManager.addTestProvider (provider, false, false, false, false, false, true, true, 0, 5);
-
-        Location newLocation = new Location(provider);
-
-        newLocation.setLatitude(latitude);
-        newLocation.setLongitude(longitude);
-        newLocation.setAltitude(3F);
-        newLocation.setTime(System.currentTimeMillis());
-        newLocation.setSpeed(0.01F);
-        newLocation.setBearing(1F);
-        newLocation.setAccuracy(3F);
-        newLocation.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-        {
-            newLocation.setBearingAccuracyDegrees(0.1F);
-            newLocation.setVerticalAccuracyMeters(0.1F);
-            newLocation.setSpeedAccuracyMetersPerSecond(0.01F);
-        }
-        mLocationManager.setTestProviderEnabled(provider, true);
-
-        mLocationManager.setTestProviderLocation(provider, newLocation);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.KITKAT_WATCH)
@@ -332,8 +314,8 @@ public class MainActivity extends AppCompatActivity {
                         ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
                     }
                     else {
-                        getLastLocation();
                         getLocation();
+                        gpsConnect();
                     }
                 } catch (Exception e){
                     e.printStackTrace();
@@ -513,8 +495,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 try {
-                    String gaid = AdvertisingIdClient.getAdvertisingIdInfo(
-                            MainActivity.this.getApplicationContext()).getId();
+                    String gaid = AdvertisingIdClient.getAdvertisingIdInfo(MainActivity.this.getApplicationContext()).getId();
                     if (gaid != null) {
                         gid = gaid;
                     }
@@ -529,8 +510,16 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }).start();
-
     }
+
+    protected synchronized void buildGoogleApiClient() {
+        mGoogleApiClient = new GoogleApiClient.Builder(this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(LocationServices.API)
+                .build();
+    }
+
 
     @SuppressLint("WrongConstant")
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -543,96 +532,54 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private void getLastLocation() {
-        askToEnableLocation();
-        if (isLocationEnabled()) {
-            mFusedLocationClient.getLastLocation().addOnCompleteListener(new OnCompleteListener<Location>() {
-                @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
-                @Override
-                public void onComplete(@NonNull Task<Location> task) {
-                    Location location = task.getResult();
-                    requestNewLocationData();
-                    if (location == null) {
-                        requestNewLocationData();
-                    } else {
-                        try {
-                            MainActivity.lat_long_status1 = true;
-                            MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + location.getLatitude() + "\", \"" + location.getLongitude() + "\"))");
-                            MainActivity.lat_long_status1 = false;
-                            addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
-                            address = addresses.get(0).getAddressLine(0);
-                            city = addresses.get(0).getLocality();
-                            MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
-                            MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
-                            MainActivity.location_string = location.getLatitude() + "," + location.getLongitude();
-                            MainActivity.location_latitude_string = location.getLatitude() + "";
-                            MainActivity.location_longitutde_string = location.getLongitude() + "";
-                            MainActivity.location_status = true;
-                        } catch (IOException e) {
-                            MainActivity.browser.post(new Runnable() {
-                                @Override
-                                public void run() {
-                                    if (MainActivity.lat_long_status1)
-                                        MainActivity.browser.loadUrl("javascript:(updateLocation(\"No Internet\", \"No Internet\"))");
-                                    MainActivity.browser.loadUrl("javascript:(updateAddress(\"No Internet\"))");
-                                    MainActivity.browser.loadUrl("javascript:(updateCity(\"No Internet\"))");
-                                    MainActivity.handler.removeCallbacks(MainActivity.runnable);
-                                }
-                            });
-                            e.printStackTrace();
-                        }
-                    }
-                }
-            });
-        } else {
-            Toast.makeText(this, "Please turn on" + " your location...", Toast.LENGTH_SHORT).show();
-//            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-//            startActivity(intent);
-        }
-    }
-
     public void askToEnableLocation() {
         LocationRequest locationRequest = LocationRequest.create();
         locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequest);
-
         Task<LocationSettingsResponse> result = LocationServices.getSettingsClient(this).checkLocationSettings(builder.build());
-
         result.addOnCompleteListener(new OnCompleteListener<LocationSettingsResponse>() {
             @Override
             public void onComplete(@NonNull Task<LocationSettingsResponse> task) {
                 try {
                     LocationSettingsResponse response = task.getResult(ApiException.class);
-                    // All location settings are satisfied. The client can initialize location
-                    // requests here.
                 } catch (ApiException exception) {
                     switch (exception.getStatusCode()) {
                         case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
-                            // Location settings are not satisfied. But could be fixed by showing the
-                            // user a dialog.
                             try {
-                                // Cast to a resolvable exception.
                                 ResolvableApiException resolvable = (ResolvableApiException) exception;
-                                // Show the dialog by calling startResolutionForResult(),
-                                // and check the result in onActivityResult().
-                                resolvable.startResolutionForResult(
-                                        MainActivity.this,
-                                        LocationRequest.PRIORITY_HIGH_ACCURACY);
+                                resolvable.startResolutionForResult(MainActivity.this, LocationRequest.PRIORITY_HIGH_ACCURACY);
                             } catch (IntentSender.SendIntentException e) {
-                                // Ignore the error.
+                                e.printStackTrace();
                             } catch (ClassCastException e) {
-                                // Ignore, should be an impossible error.
+                                e.printStackTrace();
                             }
                             break;
                         case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
-                            // Location settings are not satisfied. However, we have no way to fix the
-                            // settings so we won't show the dialog.
                             break;
                     }
                 }
             }
         });
+    }
+
+    void gpsConnect() {
+        if (mGoogleApiClient != null) {
+            mGoogleApiClient.connect();
+        }
+        System.out.println("gpsConnect***************1");
+        System.out.println(((!mGoogleApiClient.isConnecting() && !mGoogleApiClient.isConnected())) + "***************");
+        System.out.println("gpsConnect***************2");
+        if (isLocationEnabled()) {
+            if ((!mGoogleApiClient.isConnecting() && !mGoogleApiClient.isConnected())) {
+                mGoogleApiClient.connect();
+                System.out.println("gpsConnect***************if");
+            } else {
+                mGoogleApiClient.reconnect();
+                System.out.println("gpsConnect***************else");
+            }
+        }
+        else
+            Toast.makeText(this, "Please turn on gps your location...", Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -650,8 +597,8 @@ public class MainActivity extends AppCompatActivity {
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
-                        getLastLocation();
                         getLocation();
+                        gpsConnect();
                         break;
                     case Activity.RESULT_CANCELED:
                         // The user was asked to change settings, but chose not to
@@ -660,53 +607,19 @@ public class MainActivity extends AppCompatActivity {
                         break;
                 }
                 break;
-        }
-    }
-
-    @SuppressLint("MissingPermission")
-    private void requestNewLocationData() {
-        LocationRequest mLocationRequest = new LocationRequest();
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        mLocationRequest.setInterval(1000);
-        mLocationRequest.setFastestInterval(100);
-        mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-        mFusedLocationClient.requestLocationUpdates(mLocationRequest, mLocationCallback, Looper.getMainLooper());
-    }
-
-    private LocationCallback mLocationCallback = new LocationCallback() {
-
-        @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
-        @Override
-        public void onLocationResult(LocationResult locationResult) {
-            Location mLastLocation = locationResult.getLastLocation();
-            try {
-                MainActivity.lat_long_status2 = true;
-                MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + mLastLocation.getLatitude() + "\", \"" + mLastLocation.getLongitude() + "\"))");
-                MainActivity.lat_long_status2 = false;
-                addresses = geocoder.getFromLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude(), 1);
-                address = addresses.get(0).getAddressLine(0);
-                city = addresses.get(0).getLocality();
-                MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
-                MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
-                MainActivity.location_string = mLastLocation.getLatitude() + "," + mLastLocation.getLongitude();
-                MainActivity.location_latitude_string = mLastLocation.getLatitude() + "";
-                MainActivity.location_longitutde_string = mLastLocation.getLongitude() + "";
-                MainActivity.location_status = true;
-            } catch (IOException e) {
-                MainActivity.browser.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (MainActivity.lat_long_status2)
-                            MainActivity.browser.loadUrl("javascript:(updateLocation(\"No Internet\", \"No Internet\"))");
-                        MainActivity.browser.loadUrl("javascript:(updateAddress(\"No Internet\"))");
-                        MainActivity.browser.loadUrl("javascript:(updateCity(\"No Internet\"))");
-                        MainActivity.handler.removeCallbacks(MainActivity.runnable);
+            case REQUEST_CODE_RECOVER_PLAY_SERVICES:
+                if (resultCode == RESULT_OK) {
+                    if (!mGoogleApiClient.isConnecting() && !mGoogleApiClient.isConnected()) {
+                        mGoogleApiClient.connect();
                     }
-                });
-                e.printStackTrace();
-            }
+                } else if (resultCode == RESULT_CANCELED) {
+                    Toast.makeText(this, "Google Play Services must be installed.", Toast.LENGTH_SHORT).show();
+                    finish();
+                }
+                break;
+            default: break;
         }
-    };
+    }
 
     private boolean isLocationEnabled() {
         LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
@@ -740,9 +653,8 @@ public class MainActivity extends AppCompatActivity {
             handler.post(runnable);
             new GetPublicIP().execute();
             new GetPublicIPv6().execute();
-            getLastLocation();
             getLocation();
-            requestNewLocationData();
+            gpsConnect();
         }
         catch (SecurityException e) {
             Toast.makeText(MainActivity.this, "Permission denied to WRITE_SECURE_SETTINGS", Toast.LENGTH_LONG).show();
@@ -822,12 +734,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void getLocation() {
-            Location lastKnownLocation;
+        Location lastKnownLocation;
             if (ContextCompat.checkSelfPermission(this, "android.permission.ACCESS_FINE_LOCATION") != -1) {
                 askToEnableLocation();
                 if (isLocationEnabled()) {
-//                  List<String> providers = locationManager2.getProviders(true);
-                    List<String> providers = locationManager2.getProviders(false);
+                    List<String> providers = locationManager2.getProviders(true);
                     System.out.println("*******Provider*******");
                     for (String provider : providers) {
                         System.out.println(provider);
@@ -836,7 +747,7 @@ public class MainActivity extends AppCompatActivity {
                     System.out.println(locationManager2.getLastKnownLocation("network"));
                     if (locationManager2.getLastKnownLocation("network") == null)
                         MainActivity.network_location_status = true;
-                    locationManager2.requestLocationUpdates("network", 1000, 0.0f, new LocationListener() {
+                    locationManager2.requestLocationUpdates("network", 1000, 0.0f, new android.location.LocationListener() {
                         public void onLocationChanged(Location location) {
                             MainActivity.browser.loadUrl("javascript:(updateNetworkLocation(\"" + location.getLatitude() + "\", \"" + location.getLongitude() + "\"))");
                             MainActivity.network_location_string = location.getLatitude() + "," + location.getLongitude();
@@ -878,7 +789,94 @@ public class MainActivity extends AppCompatActivity {
         return displayMetrics;
     }
 
+    protected void createLocationRequest() {
+        mLocationRequest = new LocationRequest();
+        mLocationRequest.setInterval(5000);
+        mLocationRequest.setFastestInterval(1000);
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+    }
 
+    @SuppressLint("MissingPermission")
+    protected void startLocationUpdates() {
+        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+    }
+
+    @SuppressLint("MissingPermission")
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+        System.out.println("onConnected***************");
+        mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+        if (mLastLocation != null) {
+            updateLocationOnUI();
+        }
+        startLocationUpdates();
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+        System.out.println("onConnectionSuspended***************");
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        System.out.println("onConnectionFailed***************" + connectionResult.toString());
+    }
+
+    void updateLocationOnUI() {
+        try {
+            MainActivity.lat_long_status1 = true;
+            MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + mLastLocation.getLatitude() + "\", \"" + mLastLocation.getLongitude() + "\"))");
+            MainActivity.lat_long_status1 = false;
+            addresses = geocoder.getFromLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude(), 1);
+            address = addresses.get(0).getAddressLine(0);
+            city = addresses.get(0).getLocality();
+            MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
+            MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
+            MainActivity.location_string = mLastLocation.getLatitude() + "," + mLastLocation.getLongitude();
+            MainActivity.location_latitude_string = mLastLocation.getLatitude() + "";
+            MainActivity.location_longitutde_string = mLastLocation.getLongitude() + "";
+            MainActivity.location_status = true;
+        } catch (IOException e) {
+            MainActivity.browser.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (MainActivity.lat_long_status1)
+                        MainActivity.browser.loadUrl("javascript:(updateLocation(\"No Internet\", \"No Internet\"))");
+                    MainActivity.browser.loadUrl("javascript:(updateAddress(\"No Internet\"))");
+                    MainActivity.browser.loadUrl("javascript:(updateCity(\"No Internet\"))");
+                    MainActivity.handler.removeCallbacks(MainActivity.runnable);
+                }
+            });
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void onLocationChanged(@NonNull Location location) {
+        mLastLocation = location;
+        updateLocationOnUI();
+    }
+
+    protected void stopLocationUpdates() {
+        if (mGoogleApiClient != null && !mGoogleApiClient.isConnected()) {
+            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+//        stopLocationUpdates();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        if (mGoogleApiClient != null) {
+            mGoogleApiClient.disconnect();
+        }
+    }
 }
 
 class GetPublicIP extends AsyncTask<String, String, String> {
