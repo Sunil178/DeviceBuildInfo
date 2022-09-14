@@ -188,10 +188,10 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         this.android_id = Settings.Secure.getString(getApplicationContext().getContentResolver(), "android_id");
         this.local_ip = displayInterfaceInformation();
         locationManager2 = (LocationManager) getApplicationContext().getSystemService("location");
-//        if (this.googlePlayServicesAvailable) {
+        if (this.googlePlayServicesAvailable) {
             buildGoogleApiClient();
             createLocationRequest();
-//        }
+        }
 
         proxy = findViewById(R.id.proxy_string);
         proxy_string = Settings.Global.getString(getContentResolver(), "http_proxy");
@@ -239,7 +239,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         googleApiAvailability.makeGooglePlayServicesAvailable(this);
         if(status != ConnectionResult.SUCCESS) {
             if(googleApiAvailability.isUserResolvableError(status)) {
-//                googleApiAvailability.getErrorDialog(activity, status, REQUEST_CODE_RECOVER_PLAY_SERVICES).show();
+                googleApiAvailability.getErrorDialog(activity, status, REQUEST_CODE_RECOVER_PLAY_SERVICES).show();
             }
             return false;
         }
@@ -397,7 +397,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "text-align: center;" +
                 "margin-top: 50%;" +
                 "}" +
-                "</style></head><body><span><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><br><br><b>Local IP:</b> <i>" + local_ip + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...</span><span id='ipregion'><br><br><b>IP Region:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='network_location'><br><br><b>Network Location:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span>" + "<br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i><br><br><b>Uptime Millis:</b> <i>" + SystemClock.uptimeMillis() + "</i><br><br><b>Elapsed Realtime:</b> <i>" + SystemClock.elapsedRealtime() + "</i>" + sensor_data + "</span>" +
+                "</style></head><body><span><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><br><br><b>Local IP:</b> <i>" + local_ip + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...</span><span id='ipregion'><br><br><b>IP Region:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='network_location'><br><br><b>Network Location:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span>" + "<br><br><b>OS ARCH:</b> <i>" + System.getProperty("os.arch") + "</i><br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i><br><br><b>Uptime Millis:</b> <i>" + SystemClock.uptimeMillis() + "</i><br><br><b>Elapsed Realtime:</b> <i>" + SystemClock.elapsedRealtime() + "</i>" + sensor_data + "</span>" +
                 "<script type=\"text/javascript\">" +
                 "function updateGadid(gid) {" +
                 "document.getElementById('gadid').innerHTML = \"<br><br><b>AD id:</b> <i>\" + gid + \"</i>\";" +
@@ -566,16 +566,11 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         if (mGoogleApiClient != null) {
             mGoogleApiClient.connect();
         }
-        System.out.println("gpsConnect***************1");
-        System.out.println(((!mGoogleApiClient.isConnecting() && !mGoogleApiClient.isConnected())) + "***************");
-        System.out.println("gpsConnect***************2");
         if (isLocationEnabled()) {
             if ((!mGoogleApiClient.isConnecting() && !mGoogleApiClient.isConnected())) {
                 mGoogleApiClient.connect();
-                System.out.println("gpsConnect***************if");
             } else {
                 mGoogleApiClient.reconnect();
-                System.out.println("gpsConnect***************else");
             }
         }
         else
@@ -804,7 +799,6 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     @SuppressLint("MissingPermission")
     @Override
     public void onConnected(@Nullable Bundle bundle) {
-        System.out.println("onConnected***************");
         mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
         if (mLastLocation != null) {
             updateLocationOnUI();
@@ -814,12 +808,10 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
     @Override
     public void onConnectionSuspended(int i) {
-        System.out.println("onConnectionSuspended***************");
     }
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        System.out.println("onConnectionFailed***************" + connectionResult.toString());
     }
 
     void updateLocationOnUI() {
