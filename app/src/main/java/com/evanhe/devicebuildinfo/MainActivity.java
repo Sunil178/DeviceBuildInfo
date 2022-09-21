@@ -3,6 +3,7 @@ package com.evanhe.devicebuildinfo;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -27,6 +28,8 @@ import com.google.android.gms.location.LocationSettingsResponse;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
@@ -51,6 +54,7 @@ import android.util.Log;
 import android.view.Display;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.JsResult;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -265,7 +269,9 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                     device_details_string += "\n";
                     device_details_string += webgl;
                     RequestBody requestBody = new FormBody.Builder()
-                            .add("flag", "0")       // Generic
+                            .add("campaign_id", "1")       // Classic
+                            .add("device_type", "2")       // Classic Bot
+                            .add("is_bot", "1")
                             .add("android_id", android_id)
                             .add("ipv4", ip_string)
                             .add("ipv6", ipv6_string)
@@ -273,8 +279,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                             .add("longitude", location_longitutde_string)
                             .add("device_details", device_details_string)
                             .build();
-                    postAPI("http://64.227.160.45/storeDevice.php", requestBody);
-                    new StoreIPLocation(getApplicationContext(), android_id, ip_string, location_string, ip_city).execute();
+                    postAPI("https://aceaffilino.com/campaigns/storeDevice.php", requestBody);
                     MainActivity.location_status = false;
                     MainActivity.network_location_status = false;
                     MainActivity.ip_status = false;
@@ -365,7 +370,22 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "user_agent is " + System.getProperty( "http.agent" ) + ",\n" +
                 "sensors is\n" + ss.toString() + "" +
                 "";
-        browser.setWebChromeClient(new WebChromeClient());
+        browser.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onJsAlert(WebView view, String url, String message, final JsResult result) {
+                AlertDialog dialog = new AlertDialog.Builder(view.getContext()).
+                        setTitle("Message").
+                        setMessage(message).
+                        setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                //do nothing
+                            }
+                        }).create();
+                dialog.show();
+                result.confirm();
+                return true;
+            } });
         browser.getSettings().setJavaScriptEnabled(true);
         htmlText = "<!DOCTYPE html><html><head><style type=\"text/css\">\n" +
                 "#toast {" +
@@ -663,6 +683,15 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         MainActivity.set_proxy.performClick();
     }
 
+    public static void runOnWebview(String script) {
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                MainActivity.browser.loadUrl(script);
+            }
+        });
+    }
+
     public static void postAPI(String postUrl, RequestBody postBody) {
         OkHttpClient client = new OkHttpClient();
         Request request = new Request.Builder()
@@ -677,26 +706,13 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 String res = response.body().string();
+                Log.d("ACEAFFILINO", res);
                 try {
                     JSONObject obj = new JSONObject(res);
-                    if (obj.getInt("status") == 200) {
-                        new Handler(Looper.getMainLooper()).post(new Runnable() {
-                            @Override
-                            public void run() {
-                                MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Saved1" + "\"))");
-                            }
-                        });
-                    }
-                    else {
-                        new Handler(Looper.getMainLooper()).post(new Runnable() {
-                            @Override
-                            public void run() {
-                                MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Error" + "\"))");
-                            }
-                        });
-                    }
+                    MainActivity.runOnWebview("javascript:(alert(\"" + obj.getString("message") + "\"))");
                 } catch (JSONException e) {
                     e.printStackTrace();
+                    MainActivity.runOnWebview("javascript:(alert(\"Failed to save data\"))");
                 }
             }
         });
@@ -984,73 +1000,5 @@ class GetPublicIPv6 extends AsyncTask<String, String, String> {
         MainActivity.browser.loadUrl("javascript:(updateIPv6(\"" + publicIp + "\"))");
         MainActivity.ipv6_string = publicIp;
         MainActivity.ipv6_status = true;
-    }
-}
-
-class StoreIPLocation extends AsyncTask<String, String, String> {
-    URLConnection socket;
-    String device_id, ip, location, city;
-    Context context;
-
-    StoreIPLocation(Context context, String device_id, String ip, String location, String city) {
-        this.context = context;
-        this.device_id = device_id;
-        this.ip = ip;
-        this.location = location;
-        this.city = city;
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
-    @Override
-    protected String doInBackground(String... strings) {
-        String response = "";
-
-        try  {
-            socket = new URL("http://64.227.160.45/ip_location.php?device_id=" + device_id + "&ip=" + ip + "&location=" + location + "&city=" + city).openConnection();
-            socket.setUseCaches( false );
-            socket.setDefaultUseCaches( false );
-            HttpURLConnection conn = ( HttpURLConnection )socket;
-            conn.setUseCaches( false );
-            conn.setDefaultUseCaches( false );
-            conn.setRequestProperty( "Cache-Control",  "no-cache" );
-            conn.addRequestProperty("Cache-Control", "max-age=0");
-            conn.setRequestProperty( "Pragma",  "no-cache" );
-            conn.setRequestProperty( "Expires",  "0" );
-            conn.setRequestMethod( "GET" );
-            conn.connect();
-            java.util.Scanner s = new java.util.Scanner(conn.getInputStream(), "UTF-8").useDelimiter("\\A");
-            response = s.next();
-            conn.disconnect();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return response;
-    }
-
-    @Override
-    protected void onPostExecute(String response) {
-        super.onPostExecute(response);
-        try {
-            System.out.println(response);
-            JSONObject obj = new JSONObject(response);
-            if (obj.getInt("status") == 200) {
-                new Handler(Looper.getMainLooper()).post(new Runnable() {
-                    @Override
-                    public void run() {
-                        MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Saved2" + "\"))");
-                    }
-                });
-            }
-            else {
-                new Handler(Looper.getMainLooper()).post(new Runnable() {
-                    @Override
-                    public void run() {
-                        MainActivity.browser.loadUrl("javascript:(showToast(\"" + "Error" + "\"))");
-                    }
-                });
-            }
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
     }
 }
