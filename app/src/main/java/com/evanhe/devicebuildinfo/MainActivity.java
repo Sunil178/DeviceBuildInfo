@@ -264,7 +264,6 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         runnable = new Runnable() {
             @Override
             public void run() {
-
                 if (MainActivity.location_status && MainActivity.ip_status && MainActivity.ipv6_status && MainActivity.network_location_status && MainActivity.opengl_status) {
                     device_details_string += "\n";
                     device_details_string += webgl;
@@ -273,6 +272,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                             .add("device_type", "2")       // Classic Bot
                             .add("is_bot", "1")
                             .add("android_id", android_id)
+                            .add("city", ip_city)
                             .add("ipv4", ip_string)
                             .add("ipv6", ipv6_string)
                             .add("latitude", location_latitude_string)
