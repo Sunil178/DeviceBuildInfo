@@ -1,5 +1,10 @@
 package com.evanhe.devicebuildinfo;
 
+import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
+import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
+import static android.os.Build.VERSION.SDK_INT;
+import static android.os.Environment.getExternalStorageDirectory;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -40,10 +45,12 @@ import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.media.MediaDrm;
+import android.net.Uri;
 import android.opengl.GLSurfaceView;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -64,6 +71,9 @@ import android.widget.LinearLayout;
 import android.widget.Toast;
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
@@ -99,6 +109,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     public static WebView browser;
     public static int REQUEST_CODE_CHECK_SETTINGS = 101;
     public static int REQUEST_CODE_READ_PHONE = 100;
+    public static final int REQUEST_CODE_WRITE_STORAGE = 102;
     FusedLocationProviderClient mFusedLocationClient;
     private GoogleApiClient mGoogleApiClient;
     private Location mLastLocation;
@@ -171,7 +182,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         MainActivity.opengl_status = false;
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         geocoder = new Geocoder(this, Locale.getDefault());
-        this.sdk_version = Build.VERSION.SDK_INT;
+        this.sdk_version = SDK_INT;
         this.android_OS = Build.VERSION.RELEASE;
         this.android_device = Build.DEVICE;
         this.android_model = Build.MODEL;
@@ -203,6 +214,50 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         set_proxy.setEnabled(false);
     }
 
+    private void requestPermission() {
+        if (SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                intent.addCategory("android.intent.category.DEFAULT");
+                intent.setData(Uri.parse(String.format("package:%s",getApplicationContext().getPackageName())));
+                startActivityForResult(intent, REQUEST_CODE_WRITE_STORAGE);
+            } catch (Exception e) {
+                e.printStackTrace();
+                Intent intent = new Intent();
+                intent.setAction(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                startActivityForResult(intent, REQUEST_CODE_WRITE_STORAGE);
+            }
+        } else {
+            //below android 11
+            ActivityCompat.requestPermissions(MainActivity.this, new String[]{WRITE_EXTERNAL_STORAGE}, REQUEST_CODE_WRITE_STORAGE);
+        }
+    }
+
+    private boolean checkStoragePermission() {
+        boolean grant;
+        if (SDK_INT >= Build.VERSION_CODES.R) {
+            grant = Environment.isExternalStorageManager();
+        } else {
+            int result = ContextCompat.checkSelfPermission(getApplicationContext(), READ_EXTERNAL_STORAGE);
+            int result1 = ContextCompat.checkSelfPermission(getApplicationContext(), WRITE_EXTERNAL_STORAGE);
+            grant = result == PackageManager.PERMISSION_GRANTED && result1 == PackageManager.PERMISSION_GRANTED;
+        }
+        if (!grant)
+            requestPermission();
+        return grant;
+    }
+
+
+    public void writeStringAsFile(String fileContents, String fileName) {
+        try {
+            FileWriter out = new FileWriter(new File(getExternalStorageDirectory(), fileName));
+            out.write(fileContents);
+            out.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     @SuppressLint({"MissingPermission", "WrongConstant"})
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
@@ -211,6 +266,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 getLocation();
                 gpsConnect();
+                if (checkStoragePermission())
+                    writeStringAsFile(android_id, "device_id.txt");
             } else {
                 Toast.makeText(MainActivity.this, "Permission denied to get your Location", Toast.LENGTH_SHORT).show();
             }
@@ -226,10 +283,20 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                     this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
                     MainActivity.browser.loadUrl("javascript:(updateIMEI(\"" + this.imei + "\"))");
                 } catch (Exception e) {
-                    e.printStackTrace();
+//                    e.printStackTrace();
+                    System.err.println("IMEI_ERROR");
                 }
             } else {
                 Toast.makeText(MainActivity.this, "Permission denied to read your Phone", Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
+
+        if (requestCode == REQUEST_CODE_WRITE_STORAGE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                writeStringAsFile(android_id, "device_id.txt");
+            } else {
+                Toast.makeText(MainActivity.this, "Write storage permission failed", Toast.LENGTH_SHORT).show();
             }
             return;
         }
@@ -295,6 +362,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         handler.post(runnable);
 
         try {
+            if (checkStoragePermission())
+                writeStringAsFile(android_id, "device_id.txt");
             if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED ) {
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_PHONE_STATE}, REQUEST_CODE_READ_PHONE);
             }
@@ -302,7 +371,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
             }
         } catch (Exception e){
-            e.printStackTrace();
+//            e.printStackTrace();
+            System.err.println("IMEI_ERROR");
         }
 
         browser = (WebView) findViewById(R.id.webview);
@@ -348,7 +418,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "device_name is " + device_name + ",\n" +
                 "sdk_version is " + sdk_version + ",\n" +
                 "release is " + android_OS + ",\n" +
-                "sdk_int is " + Build.VERSION.SDK_INT + ",\n" +
+                "sdk_int is " + SDK_INT + ",\n" +
                 "os_aarch is " + System.getProperty("os.arch") + ",\n" +
                 "device is " + android_device + ",\n" +
                 "model is " + android_model + ",\n" +
@@ -631,6 +701,14 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                     finish();
                 }
                 break;
+            case REQUEST_CODE_WRITE_STORAGE:
+                if (SDK_INT >= Build.VERSION_CODES.R) {
+                    if (Environment.isExternalStorageManager()) {
+                        writeStringAsFile(android_id, "device_id.txt");
+                    } else {
+                        Toast.makeText(this, "Allow permission for storage access!", Toast.LENGTH_SHORT).show();
+                    }
+                }
             default: break;
         }
     }

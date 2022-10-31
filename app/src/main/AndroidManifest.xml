@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.evanhe.devicebuildinfo">
+    xmlns:tools="http://schemas.android.com/tools">
 
     <meta-data android:name="com.google.android.gms.version"
         android:value="@integer/google_play_services_version" />
@@ -20,6 +19,8 @@
     <uses-permission android:name="android.permission.WRITE_CLIPS" />
     <uses-permission android:name="android.permission.ACCESS_MOCK_LOCATION" android:permissionGroup="android.permission-group.SYSTEM_TOOLS" android:protectionLevel="signatureOrSystem"/>
     <uses-permission android:name="android.permission.WRITE_CLIPBOARD" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
         android:permissionGroup="android.permission-group.SYSTEM_TOOLS" android:protectionLevel="signatureOrSystem" />
@@ -36,6 +37,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
+        android:requestLegacyExternalStorage="true"
         android:theme="@style/Theme.MyApplication">
         <activity android:name="com.evanhe.devicebuildinfo.MainActivity">
             <intent-filter>
