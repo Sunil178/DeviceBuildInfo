@@ -99,10 +99,13 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 public class MainActivity extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
-    private String device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufacturer, network, abi, tags, android_id, address, city, htmlText;
+    private String device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufacturer, network, abi, tags, android_id, htmlText;
     private String imei = "Not Supported";
     private String sensor_data = "";
-    public static String proxy_string, device_details_string = "", network_location_string = "", location_string = "", location_latitude_string = "", location_longitutde_string = "", ip_string = "", ipv6_string = "", ip_city = "", local_ip = "";
+    public static String proxy_string, device_details_string = "", network_location_string = "", location_string = "", location_latitude_string = "", location_longitutde_string = "", ip_string = "", ip_isp = "", ipv6_string = "", ip_city = "", ip_state = "", state = "", local_ip = "";
+    public static String[] airtel_isp = {"AIRTEL", "airtel", "Airtel", "IND Airtel", "IND airtel", "ind airtel"};
+    public static String[] jio_isp = {"JIO", "jio", "Jio", "Jio 4G", "jio 4g", "Jio 4g"};
+    public static String[] vi_isp = {"VI", "vi", "Vi", "Vodafone", "vodafone", "Idea", "idea", "VI India", "Vi India", "vi india", "vodafone india"};
     private boolean googlePlayServicesAvailable;
     private int sdk_version;
     String gid = "";
@@ -115,14 +118,14 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     private Location mLastLocation;
     LocationRequest mLocationRequest;
     Geocoder geocoder;
-    List<Address> addresses;
+    public static List<Address> addresses;
+    public static String address, city;
     public static EditText proxy;
     public static Button set_proxy;
-    public static Handler handler;
-    public static Runnable runnable;
+    public static Handler handler, validHandler;
+    public static Runnable runnable, validRunnable;
     public static boolean location_status;
-    public static boolean lat_long_status1 = true;
-    public static boolean lat_long_status2 = true;
+    public static boolean lat_long_status = true;
     public static boolean network_location_status;
     public static boolean ip_status;
     public static boolean ipv6_status;
@@ -335,8 +338,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                     device_details_string += "\n";
                     device_details_string += webgl;
                     RequestBody requestBody = new FormBody.Builder()
-                            .add("campaign_id", "1")       // Classic
-                            .add("device_type", "2")       // Classic Bot
+                            .add("campaign_id", "3")       // Rummy Circle
+                            .add("device_type", "2")       // Manual Punch
                             .add("is_bot", "1")
                             .add("android_id", android_id)
                             .add("city", ip_city)
@@ -347,6 +350,15 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                             .add("device_details", device_details_string)
                             .build();
                     postAPI("https://aceaffilino.com/campaigns/storeDevice.php", requestBody);
+
+                    RequestBody checkIpRequestBody = new FormBody.Builder()
+                            .add("campaign_id", "3")
+                            .add("android_id", android_id)
+                            .add("ipv4", ip_string)
+                            .add("ipv6", ipv6_string)
+                            .build();
+                    checkIP("https://aceaffilino.com/campaigns/checkIpManual.php", checkIpRequestBody);
+
                     MainActivity.location_status = false;
                     MainActivity.network_location_status = false;
                     MainActivity.ip_status = false;
@@ -381,6 +393,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             public void onPageFinished(WebView view, String url) {
                 try {
                     set_proxy.setEnabled(true);
+                    updateValidIpNetworkLocation();
                     new GetPublicIP().execute();
                     new GetPublicIPv6().execute();
 
@@ -486,7 +499,24 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "text-align: center;" +
                 "margin-top: 50%;" +
                 "}" +
-                "</style></head><body><span><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><br><br><b>Network:</b> <i>" + network + "</i><br><br><b>Local IP:</b> <i>" + local_ip + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...</span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...</span><span id='ipregion'><br><br><b>IP Region:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='network_location'><br><br><b>Network Location:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span><br><br><b>OS ARCH:</b> <i>" + System.getProperty("os.arch") + "</i><br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i><br><br><b>Uptime Millis:</b> <i>" + SystemClock.uptimeMillis() + "</i><br><br><b>Elapsed Realtime:</b> <i>" + SystemClock.elapsedRealtime() + "</i>" + sensor_data + "</span>" +
+                ".loader {" +
+                "border: 5px solid #f3f3f3;" +
+                "border-radius: 50%;" +
+                "border-top: 5px solid #3498db;" +
+                "width: 20px;" +
+                "height: 20px;" +
+                "-webkit-animation: spin 2s linear infinite;" +
+                "animation: spin 2s linear infinite;" +
+                "}" +
+                "@-webkit-keyframes spin {" +
+                "0% { -webkit-transform: rotate(0deg); }" +
+                "100% { -webkit-transform: rotate(360deg); }" +
+                "}" +
+                "@keyframes spin {" +
+                "0% { transform: rotate(0deg); }" +
+                "100% { transform: rotate(360deg); }" +
+                "}" +
+                "</style></head><body><span><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><span id='isValidIpNetworkLocation'><br><br><b>Is Valid Ip Network Location:</b> Searching...</span><br><br><b>Local IP:</b> <i>" + local_ip + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...<span id='ipv4_loader'></span></span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...<span id='ipv6_loader'></span></span><br><br><b>Android Network:</b> <i>" + network + "</i><span id='isp_network'><br><br><b>IP Network:</b> Searching...</span><span id='ipState'><br><br><b>IP State:</b> Searching...</span><span id='locationState'><br><br><b>Location State:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='network_location'><br><br><b>Network Location:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span><br><br><b>OS ARCH:</b> <i>" + System.getProperty("os.arch") + "</i><br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i><br><br><b>Uptime Millis:</b> <i>" + SystemClock.uptimeMillis() + "</i><br><br><b>Elapsed Realtime:</b> <i>" + SystemClock.elapsedRealtime() + "</i>" + sensor_data + "</span>" +
                 "<script type=\"text/javascript\">" +
                 "function updateGadid(gid) {" +
                 "document.getElementById('gadid').innerHTML = \"<br><br><b>AD id:</b> <i>\" + gid + \"</i>\";" +
@@ -503,14 +533,31 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "function updateCity(city) {" +
                 "document.getElementById('city').innerHTML = \"<br><br><b>Location City:</b> <i>\" + city + \"</i>\";" +
                 "}" +
+                "function updateIsValidIpNetworkLocation(isValid) {" +
+                "document.getElementById('isValidIpNetworkLocation').innerHTML = \"<br><br><b>Is Valid Ip Network Location:</b> <i>\" + isValid + \"</i>\";" +
+                "}" +
                 "function updateIP(ip) {" +
-                "document.getElementById('pip').innerHTML = \"<br><br><b>IP Address:</b> <i>\" + ip + \"</i>\";" +
+                "document.getElementById('pip').innerHTML = \"<br><br><b>IP Address:</b> <i>\" + ip + \"</i><span id='ipv4_loader'></span>\";" +
                 "}" +
                 "function updateIPv6(ip) {" +
-                "document.getElementById('pipv6').innerHTML = \"<br><br><b>IPv6 Address:</b> <i>\" + ip + \"</i>\";" +
+                "document.getElementById('pipv6').innerHTML = \"<br><br><b>IPv6 Address:</b> <i>\" + ip + \"</i><span id='ipv6_loader'></span>\";" +
                 "}" +
-                "function updateIpRegion(region) {" +
-                "document.getElementById('ipregion').innerHTML = \"<br><br><b>IP Region:</b> <i>\" + region + \"</i>\";" +
+                "function addLoader() {" +
+                "document.getElementById('ipv4_loader').classList.add('loader');" +
+                "document.getElementById('ipv6_loader').classList.add('loader');" +
+                "}" +
+                "function removeLoader() {\n" +
+                "document.getElementById('ipv4_loader').classList.remove('loader');" +
+                "document.getElementById('ipv6_loader').classList.remove('loader');" +
+                "}" +
+                "function updateIspNetwork(network) {" +
+                "document.getElementById('isp_network').innerHTML = \"<br><br><b>IP Network:</b> <i>\" + network + \"</i>\";" +
+                "}" +
+                "function updateIpState(state) {" +
+                "document.getElementById('ipState').innerHTML = \"<br><br><b>IP State:</b> <i>\" + state + \"</i>\";" +
+                "}" +
+                "function updateLocationState(state) {" +
+                "document.getElementById('locationState').innerHTML = \"<br><br><b>Location State:</b> <i>\" + state + \"</i>\";" +
                 "}" +
                 "function updateIpCity(city) {" +
                 "document.getElementById('ipcity').innerHTML = \"<br><br><b>IP City:</b> <i>\" + city + \"</i>\";" +
@@ -739,14 +786,23 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 );
                 Toast.makeText(MainActivity.this, "Proxy set to " + proxy_string, Toast.LENGTH_LONG).show();
             }
-            MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"Searching...\"))");
+            MainActivity.browser.loadUrl("javascript:(updateIpState(\"Searching...\"))");
             MainActivity.browser.loadUrl("javascript:(updateIpCity(\"Searching...\"))");
             MainActivity.browser.loadUrl("javascript:(updateIP(\"Searching...\"))");
+            MainActivity.browser.loadUrl("javascript:(updateIspNetwork(\"Searching...\"))");
+            ip_string = "";
+            ip_isp = "";
+            ip_city = "";
+            ip_state = "";
+            ip_status = false;
+            location_status = false;
             handler.post(runnable);
             new GetPublicIP().execute();
             new GetPublicIPv6().execute();
             getLocation();
             gpsConnect();
+            validHandler.post(validRunnable);
+//            updateValidIpNetworkLocation();
         }
         catch (SecurityException e) {
             Toast.makeText(MainActivity.this, "Permission denied to WRITE_SECURE_SETTINGS", Toast.LENGTH_LONG).show();
@@ -791,6 +847,64 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 } catch (JSONException e) {
                     e.printStackTrace();
                     MainActivity.runOnWebview("javascript:(alert(\"Failed to save data\"))");
+                }
+            }
+        });
+    }
+
+    public static void updateIpValidation (String param1, String param2, String param3) {
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                if (!param1.isEmpty()) MainActivity.browser.loadUrl(param1);
+                if (!param2.isEmpty()) MainActivity.browser.loadUrl(param2);
+                if (!param3.isEmpty()) MainActivity.browser.loadUrl(param3);
+            }
+        });
+    }
+
+    public static void updateUI (String param1) {
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                MainActivity.browser.loadUrl(param1);
+            }
+        });
+    }
+
+    public static void checkIP(String postUrl, RequestBody postBody) {
+//        updateUI("javascript:(addLoader())");
+        OkHttpClient client = new OkHttpClient();
+        Request request = new Request.Builder()
+                .url(postUrl)
+                .post(postBody)
+                .build();
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                call.cancel();
+            }
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                String res = response.body().string();
+                try {
+                    JSONObject obj = new JSONObject(res);
+                    if (obj.getBoolean("code")) {
+                        MainActivity.updateIpValidation (
+                                "javascript:(updateIP(\"" + MainActivity.ip_string + " <span style='color: green;'>&#10004;</span>\"))",
+                                "javascript:(updateIPv6(\"" + MainActivity.ipv6_string + " <span style='color: green;'>&#10004;</span>\"))",
+                                "javascript:(showToast(\"" + "Valid IP" + "\"))"
+                        );
+                    }
+                    else {
+                        MainActivity.updateIpValidation(
+                                "javascript:(updateIP(\"<del>" + MainActivity.ip_string + "</del>\"))",
+                                "javascript:(updateIPv6(\"<del>" + MainActivity.ipv6_string + "</del>\"))",
+                                "javascript:(showToast(\"" + "Invalid IP" + "\"))"
+                        );
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
                 }
             }
         });
@@ -907,29 +1021,63 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
     }
 
+    public static boolean checkISP (String ip_isp, String[] network_isp) {
+        for (String isp: network_isp) {
+            if (ip_isp.contains(isp))
+                return true;
+        }
+        return false;
+    }
+
+    public static void updateValidIpNetworkLocation() {
+        validHandler = new Handler();
+        validRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!state.isEmpty() && !ip_state.isEmpty()) {
+                    if (state.equals(ip_state) && (checkISP(ip_isp, airtel_isp) || checkISP(ip_isp, jio_isp) || checkISP(ip_isp, vi_isp)))
+                        MainActivity.browser.loadUrl("javascript:(updateIsValidIpNetworkLocation(\"true <span style='color: green;'>&#10004;</span>\"))");
+                    else
+                        MainActivity.browser.loadUrl("javascript:(updateIsValidIpNetworkLocation(\"<del>false</del>\"))");
+                    validHandler.removeCallbacks(validRunnable);
+                }
+                else
+                    validHandler.postDelayed(validRunnable, 1000);
+            }
+        };
+        validHandler.post(validRunnable);
+    }
+
     void updateLocationOnUI() {
         try {
-            MainActivity.lat_long_status1 = true;
+            MainActivity.lat_long_status = true;
             MainActivity.browser.loadUrl("javascript:(updateLocation(\"" + mLastLocation.getLatitude() + "\", \"" + mLastLocation.getLongitude() + "\"))");
-            MainActivity.lat_long_status1 = false;
-            addresses = geocoder.getFromLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude(), 1);
-            address = addresses.get(0).getAddressLine(0);
-            city = addresses.get(0).getLocality();
+            MainActivity.lat_long_status = false;
+            MainActivity.addresses = geocoder.getFromLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude(), 1);
+            MainActivity.address = addresses.get(0).getAddressLine(0) + "";
+            MainActivity.city = addresses.get(0).getLocality() + "";
+            MainActivity.state = addresses.get(0).getAdminArea() + "";
             MainActivity.browser.loadUrl("javascript:(updateAddress(\"" + address + "\"))");
             MainActivity.browser.loadUrl("javascript:(updateCity(\"" + city + "\"))");
+            MainActivity.browser.loadUrl("javascript:(updateLocationState(\"" + state + "\"))");
             MainActivity.location_string = mLastLocation.getLatitude() + "," + mLastLocation.getLongitude();
             MainActivity.location_latitude_string = mLastLocation.getLatitude() + "";
             MainActivity.location_longitutde_string = mLastLocation.getLongitude() + "";
             MainActivity.location_status = true;
+//            updateValidIpNetworkLocation();
+            validHandler.post(validRunnable);
         } catch (IOException e) {
             MainActivity.browser.post(new Runnable() {
                 @Override
                 public void run() {
-                    if (MainActivity.lat_long_status1)
+                    if (MainActivity.lat_long_status)
                         MainActivity.browser.loadUrl("javascript:(updateLocation(\"No Internet\", \"No Internet\"))");
                     MainActivity.browser.loadUrl("javascript:(updateAddress(\"No Internet\"))");
                     MainActivity.browser.loadUrl("javascript:(updateCity(\"No Internet\"))");
+                    MainActivity.browser.loadUrl("javascript:(updateLocationState(\"No Internet\"))");
                     MainActivity.handler.removeCallbacks(MainActivity.runnable);
+                    MainActivity.validHandler.removeCallbacks(MainActivity.validRunnable);
+                    MainActivity.location_status = false;
                 }
             });
             e.printStackTrace();
@@ -999,10 +1147,17 @@ class GetPublicIP extends AsyncTask<String, String, String> {
             MainActivity.browser.post(new Runnable() {
                 @Override
                 public void run() {
-                    MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"No Internet\"))");
+                    MainActivity.browser.loadUrl("javascript:(updateIpState(\"No Internet\"))");
                     MainActivity.browser.loadUrl("javascript:(updateIpCity(\"No Internet\"))");
                     MainActivity.browser.loadUrl("javascript:(updateIP(\"No Internet\"))");
+                    MainActivity.browser.loadUrl("javascript:(updateIspNetwork(\"No Internet\"))");
                     MainActivity.handler.removeCallbacks(MainActivity.runnable);
+                    MainActivity.validHandler.removeCallbacks(MainActivity.validRunnable);
+                    MainActivity.ip_string = "";
+                    MainActivity.ip_isp = "";
+                    MainActivity.ip_city = "";
+                    MainActivity.ip_state = "";
+                    MainActivity.ip_status = false;
                 }
             });
             e.printStackTrace();
@@ -1015,15 +1170,21 @@ class GetPublicIP extends AsyncTask<String, String, String> {
         super.onPostExecute(publicIp);
         try {
             JSONObject obj = new JSONObject(publicIp);
-            MainActivity.browser.loadUrl("javascript:(updateIpRegion(\"" + obj.get("regionName") + "\"))");
+            MainActivity.browser.loadUrl("javascript:(updateIpState(\"" + obj.get("regionName") + "\"))");
             MainActivity.browser.loadUrl("javascript:(updateIpCity(\"" + obj.get("city") + "\"))");
             MainActivity.browser.loadUrl("javascript:(updateIP(\"" + obj.get("query") + "\"))");
+            MainActivity.browser.loadUrl("javascript:(updateIspNetwork(\"" + obj.get("isp") + "\"))");
             MainActivity.ip_string = obj.getString("query");
+            MainActivity.ip_isp = obj.getString("isp");
             MainActivity.ip_city = obj.getString("city");
+            MainActivity.ip_state = obj.getString("regionName");
             MainActivity.ip_status = true;
+            MainActivity.validHandler.post(MainActivity.validRunnable);
+//            MainActivity.updateValidIpNetworkLocation();
         } catch (JSONException e) {
             e.printStackTrace();
             MainActivity.handler.removeCallbacks(MainActivity.runnable);
+            MainActivity.validHandler.removeCallbacks(MainActivity.validRunnable);
         }
     }
 }
