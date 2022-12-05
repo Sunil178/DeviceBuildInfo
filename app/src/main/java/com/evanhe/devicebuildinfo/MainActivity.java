@@ -339,8 +339,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                     device_details_string += webgl;
                     RequestBody requestBody = new FormBody.Builder()
                             .add("campaign_id", "3")       // Rummy Circle
-                            .add("device_type", "2")       // Manual Punch
-                            .add("is_bot", "1")
+                            .add("device_type", "1")       // Manual Punch
+                            .add("is_bot", "0")
                             .add("android_id", android_id)
                             .add("city", ip_city)
                             .add("ipv4", ip_string)
@@ -603,7 +603,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "}; " +
                 "function copyText(e) {" +
                 "  if (e.target.tagName == \"I\") {" +
-                "    elementData = e.target.innerText;" +
+//                "    elementData = e.target.innerText;" +
+                "    elementData = e.target.childNodes[0].nodeValue.trim();" +
                 "    copyTextToClipboard(elementData);" +
                 "  }" +
                 "}" +
@@ -722,9 +723,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                     case Activity.RESULT_OK:
                         // All required changes were successfully made
                         Toast.makeText(MainActivity.this, "Enabling Location...", Toast.LENGTH_SHORT).show();
-                        set_proxy.performClick();
                         try {
-                            Thread.sleep(3000);
+                            Thread.sleep(2000);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
@@ -802,7 +802,6 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             getLocation();
             gpsConnect();
             validHandler.post(validRunnable);
-//            updateValidIpNetworkLocation();
         }
         catch (SecurityException e) {
             Toast.makeText(MainActivity.this, "Permission denied to WRITE_SECURE_SETTINGS", Toast.LENGTH_LONG).show();
@@ -1021,15 +1020,25 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
     }
 
-    public static boolean checkISP (String ip_isp, String[] network_isp) {
+    public boolean checkISPNetworks (String ip_isp, String[] network_isp) {
         for (String isp: network_isp) {
-            if (ip_isp.contains(isp))
+            if (ip_isp.contains(isp)) {
                 return true;
+            }
         }
         return false;
     }
 
-    public static void updateValidIpNetworkLocation() {
+    public boolean checkISP (String ip_isp, String[] network_isp) {
+        if (checkISPNetworks(ip_isp, network_isp)) {
+            if (checkISPNetworks(network, network_isp)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void updateValidIpNetworkLocation() {
         validHandler = new Handler();
         validRunnable = new Runnable() {
             @Override
@@ -1064,7 +1073,6 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             MainActivity.location_latitude_string = mLastLocation.getLatitude() + "";
             MainActivity.location_longitutde_string = mLastLocation.getLongitude() + "";
             MainActivity.location_status = true;
-//            updateValidIpNetworkLocation();
             validHandler.post(validRunnable);
         } catch (IOException e) {
             MainActivity.browser.post(new Runnable() {
@@ -1180,7 +1188,6 @@ class GetPublicIP extends AsyncTask<String, String, String> {
             MainActivity.ip_state = obj.getString("regionName");
             MainActivity.ip_status = true;
             MainActivity.validHandler.post(MainActivity.validRunnable);
-//            MainActivity.updateValidIpNetworkLocation();
         } catch (JSONException e) {
             e.printStackTrace();
             MainActivity.handler.removeCallbacks(MainActivity.runnable);
