@@ -113,7 +113,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     private int sdk_version;
     String gid = "";
     public static WebView browser;
-    public static int REQUEST_CODE_CHECK_SETTINGS = 101;
+    public static int REQUEST_CODE_LOCATION_SETTINGS = 101;
     public static int REQUEST_CODE_READ_PHONE = 100;
     public static final int REQUEST_CODE_WRITE_STORAGE = 102;
     FusedLocationProviderClient mFusedLocationClient;
@@ -221,7 +221,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         set_proxy.setEnabled(false);
     }
 
-    private void requestPermission() {
+    private void requestStoragePermission() {
         if (SDK_INT >= Build.VERSION_CODES.R) {
             try {
                 Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
@@ -250,10 +250,25 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             grant = result == PackageManager.PERMISSION_GRANTED && result1 == PackageManager.PERMISSION_GRANTED;
         }
         if (!grant)
-            requestPermission();
+            requestStoragePermission();
         return grant;
     }
 
+    private boolean checkLocationPermission() {
+        if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ) {
+            return true;
+        }
+        return false;
+    }
+
+
+    private boolean requestLocationPermission() {
+        if (!checkLocationPermission()) {
+            ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_LOCATION_SETTINGS);
+            return false;
+        }
+        return true;
+    }
 
     public void writeStringAsFile(String fileContents, String fileName) {
         try {
@@ -269,7 +284,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_CODE_CHECK_SETTINGS) {
+        if (requestCode == REQUEST_CODE_LOCATION_SETTINGS) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 getLocation();
                 gpsConnect();
@@ -284,9 +299,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         if (requestCode == REQUEST_CODE_READ_PHONE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 try {
-                    if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
-                    }
+                    requestLocationPermission();
                     this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
                     MainActivity.browser.loadUrl("javascript:(updateIMEI(\"" + this.imei + "\"))");
                 } catch (Exception e) {
@@ -395,7 +408,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_PHONE_STATE}, REQUEST_CODE_READ_PHONE);
             }
             else {
-                this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
+                this.imei = ((TelephonyManager) getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE)).getDeviceId();
             }
         } catch (Exception e){
 //            e.printStackTrace();
@@ -412,10 +425,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                     new GetPublicIP().execute();
                     new GetPublicIPv6().execute();
 
-                    if (ContextCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
-                        ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE_CHECK_SETTINGS);
-                    }
-                    else {
+                    if (requestLocationPermission()) {
                         getLocation();
                         gpsConnect();
                     }
@@ -814,8 +824,10 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             handler.post(runnable);
             new GetPublicIP().execute();
             new GetPublicIPv6().execute();
-            getLocation();
-            gpsConnect();
+            if (checkLocationPermission()) {
+                getLocation();
+                gpsConnect();
+            }
             validHandler.post(validRunnable);
         }
         catch (SecurityException e) {
@@ -951,7 +963,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
     public void getLocation() {
         Location lastKnownLocation;
-            if (ContextCompat.checkSelfPermission(this, "android.permission.ACCESS_FINE_LOCATION") != -1) {
+            if (checkLocationPermission()) {
                 askToEnableLocation();
                 if (isLocationEnabled()) {
                     List<String> providers = locationManager.getProviders(true);
@@ -1027,6 +1039,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         }
         mockLocationManager.setTestProviderEnabled(provider, true);
         mockLocationManager.setTestProviderLocation(provider, newLocation);
+        Log.i("ACEBOT", "Mock location is set");
     }
 
     private void stopMock() {
@@ -1152,8 +1165,10 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     }
 
     protected void stopLocationUpdates() {
-        locationManager.removeUpdates(locationListener);
-        if (mGoogleApiClient != null && !mGoogleApiClient.isConnected()) {
+        if (locationManager != null && locationListener != null) {
+            locationManager.removeUpdates(locationListener);
+        }
+        if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
             LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
         }
     }
@@ -1168,8 +1183,10 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     @Override
     protected void onResume() {
         super.onResume();
-        getLocation();
-        gpsConnect();
+        if (checkLocationPermission()) {
+            getLocation();
+            gpsConnect();
+        }
     }
 
     @Override
