@@ -134,6 +134,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     public static boolean ipv6_status;
     public static boolean opengl_status;
     LocationManager locationManager, mockLocationManager;
+    android.location.LocationListener locationListener;
     LinearLayout linearLayout;
     private static final int REQUEST_CODE_RECOVER_PLAY_SERVICES = 200;
     private String webgl = "";
@@ -329,13 +330,14 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         super.onStart();
 
         if (!isMockLocationEnabled()) {
-            try {
+            Toast.makeText(MainActivity.this, "Please allow mock locations", Toast.LENGTH_LONG).show();
+            /*try {
                 startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
             }
             catch (Exception e) {
                 e.printStackTrace();
                 Toast.makeText(MainActivity.this, "Please enable developer options", Toast.LENGTH_SHORT).show();
-            }
+            }*/
         }
 
         mGlSurfaceView = new GLSurfaceView(this);
@@ -958,10 +960,11 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                         System.out.println(provider);
                     }
                     System.out.println("*******Provider*******");
-                    System.out.println(locationManager.getLastKnownLocation("network"));
-                    if (locationManager.getLastKnownLocation("network") == null)
+                    System.out.println(locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER));
+                    if (locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) == null) {
                         MainActivity.network_location_status = true;
-                    locationManager.requestLocationUpdates("network", 1000, 0.0f, new android.location.LocationListener() {
+                    }
+                    locationListener = new android.location.LocationListener() {
                         public void onLocationChanged(Location location) {
                             MainActivity.browser.loadUrl("javascript:(updateNetworkLocation(\"" + location.getLatitude() + "\", \"" + location.getLongitude() + "\"))");
                             MainActivity.network_location_string = location.getLatitude() + "," + location.getLongitude();
@@ -976,8 +979,9 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
                         public void onStatusChanged(String str, int i, Bundle bundle) {
                         }
-                    });
-                    if (locationManager != null && (lastKnownLocation = locationManager.getLastKnownLocation("network")) != null) {
+                    };
+                    locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0.0f, locationListener);
+                    if (locationManager != null && (lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)) != null) {
                         final double latitude = lastKnownLocation.getLatitude();
                         final double longitude = lastKnownLocation.getLongitude();
                         MainActivity.browser.loadUrl("javascript:(updateNetworkLocation(\"" + latitude + "\", \"" + longitude + "\"))");
@@ -1044,6 +1048,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
     @SuppressLint("MissingPermission")
     @Override
     public void onConnected(@Nullable Bundle bundle) {
@@ -1147,6 +1152,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     }
 
     protected void stopLocationUpdates() {
+        locationManager.removeUpdates(locationListener);
         if (mGoogleApiClient != null && !mGoogleApiClient.isConnected()) {
             LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
         }
@@ -1155,20 +1161,27 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     @Override
     protected void onPause() {
         super.onPause();
-//        stopLocationUpdates();
+        stopLocationUpdates();
         stopMock();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        getLocation();
+        gpsConnect();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
+        stopLocationUpdates();
+        stopMock();
         if (mGoogleApiClient != null) {
             mGoogleApiClient.disconnect();
         }
-        stopMock();
     }
-    private boolean isMockLocationEnabled()
-    {
+    private boolean isMockLocationEnabled() {
         boolean isMockLocation = false;
         try {
             if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -1178,15 +1191,9 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 isMockLocation = !android.provider.Settings.Secure.getString(getApplicationContext().getContentResolver(), "mock_location").equals("0");
             }
         } catch (Exception e) {
-            e.printStackTrace();
+//            e.printStackTrace();
         }
         return isMockLocation;
-    }
-
-    @Override
-    public void onBackPressed() {
-        super.onBackPressed();
-        stopMock();
     }
 }
 
