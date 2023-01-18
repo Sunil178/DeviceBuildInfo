@@ -32,6 +32,7 @@ import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResponse;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.google.android.gms.location.Priority;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 
@@ -42,6 +43,7 @@ import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.location.Address;
+import android.location.Criteria;
 import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
@@ -696,7 +698,9 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
     public void askToEnableLocation() {
         LocationRequest locationRequest = LocationRequest.create();
-        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        locationRequest.setPriority(Priority.PRIORITY_HIGH_ACCURACY);
+        locationRequest.setInterval(10000);
+        locationRequest.setFastestInterval(5000);
         LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequest);
         Task<LocationSettingsResponse> result = LocationServices.getSettingsClient(this).checkLocationSettings(builder.build());
         result.addOnCompleteListener(new OnCompleteListener<LocationSettingsResponse>() {
@@ -787,7 +791,22 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
     private boolean isLocationEnabled() {
         LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+//        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+        if (isProviderEnabled(locationManager, 1) || isProviderEnabled(locationManager, 2) || isProviderEnabled(locationManager, 1)) {
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isProviderEnabled(LocationManager locationManager, int i) {
+        try {
+            Criteria criteria = new Criteria();
+            criteria.setAccuracy(i);
+            return locationManager.isProviderEnabled(locationManager.getBestProvider(criteria, true));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
@@ -967,12 +986,15 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 askToEnableLocation();
                 if (isLocationEnabled()) {
                     List<String> providers = locationManager.getProviders(true);
-                    System.out.println("*******Provider*******");
-                    for (String provider : providers) {
-                        System.out.println(provider);
-                    }
-                    System.out.println("*******Provider*******");
-                    System.out.println(locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER));
+                    Log.i("ACEBOT", "ENABLED_PROVIDER: " + providers.toString());
+                    providers = locationManager.getProviders(false);
+                    Log.i("ACEBOT", "ALL_PROVIDER: " + providers.toString());
+
+                    Log.i("ACEBOT", "NETWORK_PROVIDER: " + locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER));
+                    Log.i("ACEBOT", "GPS_PROVIDER: " + locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER));
+                    Log.i("ACEBOT", "FUSED_PROVIDER: " + locationManager.getLastKnownLocation(LocationManager.FUSED_PROVIDER));
+                    Log.i("ACEBOT", "PASSIVE_PROVIDER: " + locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER));
+
                     if (locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) == null) {
                         MainActivity.network_location_status = true;
                     }
@@ -1019,8 +1041,13 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         return displayMetrics;
     }
 
+    @SuppressLint("MissingPermission")
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
     private void setMock(String provider, double latitude, double longitude) {
+        Log.i("ACEBOT", "provider: " + provider + " - latitude: " + latitude + " - longitude: " + longitude);
+        latitude = 19.0760;
+        longitude = 72.8777;
+        Log.i("ACEBOT", "provider: " + provider + " - latitude: " + latitude + " - longitude: " + longitude);
         mockLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         mockLocationManager.addTestProvider (provider, false, false, false, false, false, true, true, ProviderProperties.POWER_USAGE_MEDIUM, ProviderProperties.ACCURACY_FINE);
         Location newLocation = new Location(provider);
@@ -1039,21 +1066,34 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         }
         mockLocationManager.setTestProviderEnabled(provider, true);
         mockLocationManager.setTestProviderLocation(provider, newLocation);
+        LocationServices.FusedLocationApi.setMockMode(mGoogleApiClient, true);
+        LocationServices.FusedLocationApi.setMockLocation(mGoogleApiClient, newLocation);
         Log.i("ACEBOT", "Mock location is set");
     }
 
+    @SuppressLint("MissingPermission")
     private void stopMock() {
         if (mockLocationManager != null) {
             mockLocationManager.removeTestProvider(LocationManager.GPS_PROVIDER);
             mockLocationManager.removeTestProvider(LocationManager.NETWORK_PROVIDER);
         }
+        if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
+            LocationServices.FusedLocationApi.setMockMode(mGoogleApiClient, false);
+        }
     }
 
     protected void createLocationRequest() {
         mLocationRequest = new LocationRequest();
-        mLocationRequest.setInterval(5000);
-        mLocationRequest.setFastestInterval(1000);
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setInterval(2000);
+//        mLocationRequest.setFastestInterval(1000);
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == 0) {
+            mLocationRequest.setPriority(Priority.PRIORITY_HIGH_ACCURACY);
+        } else if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == 0) {
+            mLocationRequest.setPriority(Priority.PRIORITY_BALANCED_POWER_ACCURACY);
+        } else {
+            mLocationRequest.setPriority(Priority.PRIORITY_LOW_POWER);
+        }
+//        mLocationRequest.setPriority(Priority.PRIORITY_HIGH_ACCURACY);
     }
 
     @SuppressLint("MissingPermission")
@@ -1066,6 +1106,20 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+        Log.i("ACEBOT", "onConnected - RC - mLastLocation: " + mLastLocation.toString() + " - isLocationEnabled(): " + isLocationEnabled() + " - mLastLocation.getTime(): " + mLastLocation.getTime() + " - System.currentTimeMillis(): " + System.currentTimeMillis() + " - location : condition: " + (mLastLocation == null || !isLocationEnabled()) + " - getTime() : condition: " + (mLastLocation.getTime() > System.currentTimeMillis() - 7200000));
+
+        if (mLastLocation == null || !isLocationEnabled()) {
+//            MainActivity.runOnWebview("javascript:(alert(\"RC - Please enable location service\"))");
+            Log.i("ACEBOT", "onConnected - RC - Please enable location service");
+        }
+        else if (mLastLocation.getTime() > System.currentTimeMillis() - 7200000) {
+//            MainActivity.runOnWebview("javascript:(alert(\"RC - Got the location\"))");
+            Log.i("ACEBOT", "onConnected - RC - Got the location");
+        }
+        else {
+//            MainActivity.runOnWebview("javascript:(alert(\"RC - Location technical error\"))");
+            Log.i("ACEBOT", "onConnected - RC - Location technical error");
+        }
         if (mLastLocation != null) {
             updateLocationOnUI();
         }
@@ -1090,10 +1144,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     }
 
     public boolean checkISP (String ip_isp, String[] network_isp) {
-        if (checkISPNetworks(ip_isp, network_isp)) {
-            if (checkISPNetworks(network, network_isp)) {
-                return true;
-            }
+        if (checkISPNetworks(ip_isp, network_isp) && checkISPNetworks(network, network_isp)) {
+            return true;
         }
         return false;
     }
@@ -1135,10 +1187,15 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             MainActivity.location_longitutde_string = mLastLocation.getLongitude() + "";
             MainActivity.location_status = true;
             validHandler.post(validRunnable);
-            if (isMockLocationEnabled()) {
+            if (SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+                Log.i("ACEBOT", "isFromMockProvider: " + mLastLocation.isFromMockProvider() + "");
+            }
+//            stopMock();
+            /*if (isMockLocationEnabled()) {
                 setMock(LocationManager.GPS_PROVIDER, mLastLocation.getLatitude(), mLastLocation.getLongitude());
                 setMock(LocationManager.NETWORK_PROVIDER, mLastLocation.getLatitude(), mLastLocation.getLongitude());
-            }
+                setMock(LocationManager.FUSED_PROVIDER, mLastLocation.getLatitude(), mLastLocation.getLongitude());
+            }*/
         } catch (IOException e) {
             MainActivity.browser.post(new Runnable() {
                 @Override
@@ -1160,8 +1217,24 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
     @Override
     public void onLocationChanged(@NonNull Location location) {
+        Log.i("ACEBOT", "GoogleApiClient: " + location);
         mLastLocation = location;
         updateLocationOnUI();
+
+        Log.i("ACEBOT", "onLocationChanged - RC - mLastLocation: " + mLastLocation.toString() + " - isLocationEnabled(): " + isLocationEnabled() + " - mLastLocation.getTime(): " + mLastLocation.getTime() + " - System.currentTimeMillis(): " + System.currentTimeMillis() + " - location : condition: " + (mLastLocation == null || !isLocationEnabled()) + " - getTime() : condition: " + (mLastLocation.getTime() > System.currentTimeMillis() - 7200000));
+
+        if (mLastLocation == null || !isLocationEnabled()) {
+//            MainActivity.runOnWebview("javascript:(alert(\"RC - Please enable location service\"))");
+            Log.i("ACEBOT", "onLocationChanged - RC - Please enable location service");
+        }
+        else if (mLastLocation.getTime() > System.currentTimeMillis() - 7200000) {
+//            MainActivity.runOnWebview("javascript:(alert(\"RC - Got the location\"))");
+            Log.i("ACEBOT", "onLocationChanged - RC - Got the location");
+        }
+        else {
+//            MainActivity.runOnWebview("javascript:(alert(\"RC - Location technical error\"))");
+            Log.i("ACEBOT", "onLocationChanged - RC - Location technical error");
+        }
     }
 
     protected void stopLocationUpdates() {
@@ -1176,24 +1249,24 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     @Override
     protected void onPause() {
         super.onPause();
-        stopLocationUpdates();
-        stopMock();
+        /*stopLocationUpdates();
+        stopMock();*/
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (checkLocationPermission()) {
+        /*if (checkLocationPermission()) {
             getLocation();
             gpsConnect();
-        }
+        }*/
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        stopLocationUpdates();
-        stopMock();
+        /*stopLocationUpdates();
+        stopMock();*/
         if (mGoogleApiClient != null) {
             mGoogleApiClient.disconnect();
         }
