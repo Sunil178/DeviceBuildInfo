@@ -11,7 +11,6 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:layout_width="fill_parent">
-<!--        android:visibility="gone">-->
         <EditText
             android:id="@+id/proxy_string"
             android:layout_height="wrap_content"
@@ -29,5 +28,4 @@
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
         />
-
 </LinearLayout>

@@ -25,6 +25,7 @@ import com.google.android.gms.common.GooglePlayServicesRepairableException;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResolvableApiException;
+import com.google.android.gms.common.util.DeviceProperties;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
@@ -40,6 +41,8 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.location.Address;
@@ -76,9 +79,11 @@ import android.widget.Toast;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
@@ -221,6 +226,25 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         proxy.setText(proxy_string);
         set_proxy = findViewById(R.id.set_proxy);
         set_proxy.setEnabled(false);
+    }
+
+    public static String getCMDOutput(String cmd) {
+
+        Process process = null;
+        String out = "";
+        try {
+            process = Runtime.getRuntime().exec(cmd);
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            StringBuilder result=new StringBuilder();
+            String line = "";
+            while ((line = bufferedReader.readLine()) != null) {
+                result.append(line);
+            }
+            out = result.toString().trim();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return out;
     }
 
     private void requestStoragePermission() {
@@ -466,6 +490,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "manufacturer is " + manufacturer + ",\n" +
                 "product is " + android_product + ",\n" +
                 "network is " + network + ",\n" +
+                "network-gsm.sim.operator.alpha is " + getCMDOutput("getprop gsm.sim.operator.alpha") + ",\n" +
+                "network-gsm.operator.alpha is " + getCMDOutput("getprop gsm.operator.alpha") + ",\n" +
                 "network_location is " + network_location_string + ",\n" +
                 "location is " + location_string + ",\n" +
                 "local_ip is " + local_ip + ",\n" +
@@ -477,6 +503,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "screen_dpi is " + screenDisplay.densityDpi + ",\n" +
                 "screen_height is " + screenDisplay.heightPixels + ",\n" +
                 "screen_width is " + screenDisplay.widthPixels + ",\n" +
+                "is_tablet is " + DeviceProperties.isTablet(getApplicationContext()) + ",\n" +
                 "user_agent is " + System.getProperty( "http.agent" ) + ",\n" +
                 "sensors is\n" + ss.toString() + "" +
                 "";
@@ -543,7 +570,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "0% { transform: rotate(0deg); }" +
                 "100% { transform: rotate(360deg); }" +
                 "}" +
-                "</style></head><body><span><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><span id='isValidIpNetworkLocation'><br><br><b>Is Valid Ip Network Location:</b> Searching...</span><br><br><b>Local IP:</b> <i>" + local_ip + "</i><span id='pip'><br><br><b>IP Address:</b> Searching...<span id='ipv4_loader'></span></span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...<span id='ipv6_loader'></span></span><br><br><b>Android Network:</b> <i>" + network + "</i><span id='isp_network'><br><br><b>IP Network:</b> Searching...</span><span id='ipState'><br><br><b>IP State:</b> Searching...</span><span id='locationState'><br><br><b>Location State:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='network_location'><br><br><b>Network Location:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span><br><br><b>OS ARCH:</b> <i>" + System.getProperty("os.arch") + "</i><br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i><br><br><b>Uptime Millis:</b> <i>" + SystemClock.uptimeMillis() + "</i><br><br><b>Elapsed Realtime:</b> <i>" + SystemClock.elapsedRealtime() + "</i>" + sensor_data + "</span>" +
+                "</style></head><body><span><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><span id='isValidIpNetworkLocation'><br><br><b>Is Valid Ip Network Location:</b> Searching...</span><span><br><br><b>Is Tablet:</b> " + DeviceProperties.isTablet(getApplicationContext()) + " </span><br><br><b>Local IP:</b> <i>" + local_ip + "</i><span id='pip'><br><br><b>IPv4 Address:</b> Searching...<span id='ipv4_loader'></span></span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...<span id='ipv6_loader'></span></span><br><br><b>Android Network:</b> <i>" + network + "</i><span id='isp_network'><br><br><b>IP Network:</b> Searching...</span><span id='ipState'><br><br><b>IP State:</b> Searching...</span><span id='locationState'><br><br><b>Location State:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='network_location'><br><br><b>Network Location:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span><br><br><b>OS ARCH:</b> <i>" + System.getProperty("os.arch") + "</i><br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i><br><br><b>Uptime Millis:</b> <i>" + SystemClock.uptimeMillis() + "</i><br><br><b>Elapsed Realtime:</b> <i>" + SystemClock.elapsedRealtime() + "</i>" + sensor_data + "</span>" +
                 "<script type=\"text/javascript\">" +
                 "function updateGadid(gid) {" +
                 "document.getElementById('gadid').innerHTML = \"<br><br><b>AD id:</b> <i>\" + gid + \"</i>\";" +
@@ -564,7 +591,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "document.getElementById('isValidIpNetworkLocation').innerHTML = \"<br><br><b>Is Valid Ip Network Location:</b> <i>\" + isValid + \"</i>\";" +
                 "}" +
                 "function updateIP(ip) {" +
-                "document.getElementById('pip').innerHTML = \"<br><br><b>IP Address:</b> <i>\" + ip + \"</i><span id='ipv4_loader'></span>\";" +
+                "document.getElementById('pip').innerHTML = \"<br><br><b>IPv4 Address:</b> <i>\" + ip + \"</i><span id='ipv4_loader'></span>\";" +
                 "}" +
                 "function updateIPv6(ip) {" +
                 "document.getElementById('pipv6').innerHTML = \"<br><br><b>IPv6 Address:</b> <i>\" + ip + \"</i><span id='ipv6_loader'></span>\";" +
@@ -885,7 +912,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 String res = response.body().string();
-                Log.d("ACEAFFILINO", res);
+                Log.d("ACEBOT-postAPI", res);
                 try {
                     JSONObject obj = new JSONObject(res);
                     MainActivity.runOnWebview("javascript:(alert(\"" + obj.getString("message") + "\"))");
@@ -996,7 +1023,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                     Log.i("ACEBOT", "PASSIVE_PROVIDER: " + locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER));
 
                     if (locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) == null) {
-                        MainActivity.network_location_status = true;
+                        MainActivity.network_location_status = false;
                     }
                     locationListener = new android.location.LocationListener() {
                         public void onLocationChanged(Location location) {
@@ -1106,18 +1133,13 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-        Log.i("ACEBOT", "onConnected - RC - mLastLocation: " + mLastLocation.toString() + " - isLocationEnabled(): " + isLocationEnabled() + " - mLastLocation.getTime(): " + mLastLocation.getTime() + " - System.currentTimeMillis(): " + System.currentTimeMillis() + " - location : condition: " + (mLastLocation == null || !isLocationEnabled()) + " - getTime() : condition: " + (mLastLocation.getTime() > System.currentTimeMillis() - 7200000));
-
         if (mLastLocation == null || !isLocationEnabled()) {
-//            MainActivity.runOnWebview("javascript:(alert(\"RC - Please enable location service\"))");
             Log.i("ACEBOT", "onConnected - RC - Please enable location service");
         }
         else if (mLastLocation.getTime() > System.currentTimeMillis() - 7200000) {
-//            MainActivity.runOnWebview("javascript:(alert(\"RC - Got the location\"))");
             Log.i("ACEBOT", "onConnected - RC - Got the location");
         }
         else {
-//            MainActivity.runOnWebview("javascript:(alert(\"RC - Location technical error\"))");
             Log.i("ACEBOT", "onConnected - RC - Location technical error");
         }
         if (mLastLocation != null) {
@@ -1221,18 +1243,13 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         mLastLocation = location;
         updateLocationOnUI();
 
-        Log.i("ACEBOT", "onLocationChanged - RC - mLastLocation: " + mLastLocation.toString() + " - isLocationEnabled(): " + isLocationEnabled() + " - mLastLocation.getTime(): " + mLastLocation.getTime() + " - System.currentTimeMillis(): " + System.currentTimeMillis() + " - location : condition: " + (mLastLocation == null || !isLocationEnabled()) + " - getTime() : condition: " + (mLastLocation.getTime() > System.currentTimeMillis() - 7200000));
-
         if (mLastLocation == null || !isLocationEnabled()) {
-//            MainActivity.runOnWebview("javascript:(alert(\"RC - Please enable location service\"))");
             Log.i("ACEBOT", "onLocationChanged - RC - Please enable location service");
         }
         else if (mLastLocation.getTime() > System.currentTimeMillis() - 7200000) {
-//            MainActivity.runOnWebview("javascript:(alert(\"RC - Got the location\"))");
             Log.i("ACEBOT", "onLocationChanged - RC - Got the location");
         }
         else {
-//            MainActivity.runOnWebview("javascript:(alert(\"RC - Location technical error\"))");
             Log.i("ACEBOT", "onLocationChanged - RC - Location technical error");
         }
     }
