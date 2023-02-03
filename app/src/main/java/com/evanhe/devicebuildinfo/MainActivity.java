@@ -247,6 +247,26 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         return out;
     }
 
+    public DisplayMetrics getDisplayMetrics() {
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        ((WindowManager) getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay().getMetrics(displayMetrics);
+        return displayMetrics;
+    }
+
+    public boolean isTablet() {
+        boolean pkg = DeviceProperties.isTablet(getApplicationContext());
+        boolean custom;
+        try {
+            DisplayMetrics d2 = getDisplayMetrics();
+            int i2 = d2.widthPixels;
+            int i3 = d2.heightPixels;
+            custom = Math.sqrt((double) ((i3 * i3) + (i2 * i2))) / ((double) d2.densityDpi) < 7.0d ? false : true;
+        } catch (Exception unused) {
+            custom = false;
+        }
+        return (pkg || custom);
+    }
+
     private void requestStoragePermission() {
         if (SDK_INT >= Build.VERSION_CODES.R) {
             try {
@@ -503,7 +523,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "screen_dpi is " + screenDisplay.densityDpi + ",\n" +
                 "screen_height is " + screenDisplay.heightPixels + ",\n" +
                 "screen_width is " + screenDisplay.widthPixels + ",\n" +
-                "is_tablet is " + DeviceProperties.isTablet(getApplicationContext()) + ",\n" +
+                "is_tablet is " + isTablet() + ",\n" +
                 "user_agent is " + System.getProperty( "http.agent" ) + ",\n" +
                 "sensors is\n" + ss.toString() + "" +
                 "";
@@ -570,7 +590,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "0% { transform: rotate(0deg); }" +
                 "100% { transform: rotate(360deg); }" +
                 "}" +
-                "</style></head><body><span><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><span id='isValidIpNetworkLocation'><br><br><b>Is Valid Ip Network Location:</b> Searching...</span><span><br><br><b>Is Tablet:</b> " + DeviceProperties.isTablet(getApplicationContext()) + " </span><br><br><b>Local IP:</b> <i>" + local_ip + "</i><span id='pip'><br><br><b>IPv4 Address:</b> Searching...<span id='ipv4_loader'></span></span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...<span id='ipv6_loader'></span></span><br><br><b>Android Network:</b> <i>" + network + "</i><span id='isp_network'><br><br><b>IP Network:</b> Searching...</span><span id='ipState'><br><br><b>IP State:</b> Searching...</span><span id='locationState'><br><br><b>Location State:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='network_location'><br><br><b>Network Location:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span><br><br><b>OS ARCH:</b> <i>" + System.getProperty("os.arch") + "</i><br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i><br><br><b>Uptime Millis:</b> <i>" + SystemClock.uptimeMillis() + "</i><br><br><b>Elapsed Realtime:</b> <i>" + SystemClock.elapsedRealtime() + "</i>" + sensor_data + "</span>" +
+                "</style></head><body><span><b>Device ID:</b> <i>" + this.android_id + "</i><span id='imei'><br><br><b>IMEI:</b> <i>" + this.imei + "</i></span><br><br><b>Device Name:</b> <i>" + device_name + "</i><br><br><b>SDK Version:</b> <i>" + sdk_version + "</i><br><br><b>Release:</b> <i>" + android_OS + "</i><br><br><b>Device:</b> <i>" + android_device + "</i><br><br><b>Model:</b> <i>" + android_model + "</i><br><br><b>Brand:</b> <i>" + android_brand + "</i><br><br><b>Manufacturer:</b> <i>" + manufacturer + "</i><br><br><b>Product:</b> <i>" + android_product + "</i><span id='isValidIpNetworkLocation'><br><br><b>Is Valid Ip Network Location:</b> Searching...</span><span><br><br><b>Is Tablet:</b> " + isTablet() + " </span><br><br><b>Local IP:</b> <i>" + local_ip + "</i><span id='pip'><br><br><b>IPv4 Address:</b> Searching...<span id='ipv4_loader'></span></span><span id='pipv6'><br><br><b>IPv6 Address:</b> Searching...<span id='ipv6_loader'></span></span><br><br><b>Android Network:</b> <i>" + network + "</i><span id='isp_network'><br><br><b>IP Network:</b> Searching...</span><span id='ipState'><br><br><b>IP State:</b> Searching...</span><span id='locationState'><br><br><b>Location State:</b> Searching...</span><span id='ipcity'><br><br><b>IP City:</b> Searching...</span><span id='city'><br><br><b>Location City:</b> Searching...</span><span id='network_location'><br><br><b>Network Location:</b> Searching...</span><span id='location'><br><br><b>Location:</b> Searching...</span><span id='address'><br><br><b>Address:</b> Searching...</span><span id='gadid'><br><br><b>AD id:</b> Searching...</span><br><br><b>OS ARCH:</b> <i>" + System.getProperty("os.arch") + "</i><br><br><b>ABI:</b> <i>" + abi + "</i><br><br><b>Tags:</b> <i>" + tags + "</i><br><br><b>Build ID:</b> <i>" + build_id + "</i><br><br><b>Display ID:</b> <i>" + display_id + "</i><br><br><b>Locale:</b> <i>" + locale + "</i><br><br><b>Google Play Services:</b> <i>" + googlePlayServicesAvailable + "</i><br><br><b>Device DRM ID:</b> <i>" + unique_device_id + "</i><br><br><b>Uptime Millis:</b> <i>" + SystemClock.uptimeMillis() + "</i><br><br><b>Elapsed Realtime:</b> <i>" + SystemClock.elapsedRealtime() + "</i>" + sensor_data + "</span>" +
                 "<script type=\"text/javascript\">" +
                 "function updateGadid(gid) {" +
                 "document.getElementById('gadid').innerHTML = \"<br><br><b>AD id:</b> <i>\" + gid + \"</i>\";" +
