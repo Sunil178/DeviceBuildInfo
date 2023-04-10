@@ -113,7 +113,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     private String imei = "Not Supported";
     private String sensor_data = "";
     public static String proxy_string, device_details_string = "", network_location_string = "", location_string = "", location_latitude_string = "", location_longitutde_string = "", ip_string = "", ip_isp = "", ipv6_string = "", ip_city = "", ip_state = "", state = "", local_ip = "";
-    public static String[] airtel_isp = {"AIRTEL", "airtel", "Airtel", "IND Airtel", "IND airtel", "ind airtel"};
+    public static String[] airtel_isp = {"AIRTEL", "airtel", "Airtel", "IND Airtel", "IND airtel", "ind airtel", "BHARTI", "Bharti", "bharti"};
     public static String[] jio_isp = {"JIO", "jio", "Jio", "Jio 4G", "jio 4g", "Jio 4g"};
     public static String[] vi_isp = {"VI", "vi", "Vi", "Vodafone", "vodafone", "Idea", "idea", "VI India", "Vi India", "vi india", "vodafone india"};
     private boolean googlePlayServicesAvailable;
@@ -1409,12 +1409,12 @@ class GetPublicIPv6 extends AsyncTask<String, String, String> {
 
         try  {
             if (MainActivity.proxy_string == null || MainActivity.proxy_string.trim().equals("") || MainActivity.proxy_string.trim().equals(":0")) {
-                socket = new URL("https://api64.ipify.org").openConnection();
+                socket = new URL("https://api-bdc.net/data/client-ip").openConnection();
             }
             else {
                 String[] arrayString = MainActivity.proxy_string.split(":");
                 Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(arrayString[0], Integer.parseInt(arrayString[1])));
-                socket = new URL("https://api64.ipify.org").openConnection(proxy);
+                socket = new URL("https://api-bdc.net/data/client-ip").openConnection(proxy);
             }
 
             socket.setUseCaches( false );
@@ -1447,8 +1447,15 @@ class GetPublicIPv6 extends AsyncTask<String, String, String> {
     @Override
     protected void onPostExecute(String publicIp) {
         super.onPostExecute(publicIp);
-        MainActivity.browser.loadUrl("javascript:(updateIPv6(\"" + publicIp + "\"))");
-        MainActivity.ipv6_string = publicIp;
-        MainActivity.ipv6_status = true;
+
+        try {
+            JSONObject obj = new JSONObject(publicIp);
+            MainActivity.browser.loadUrl("javascript:(updateIPv6(\"" + obj.get("ipString") + "\"))");
+            MainActivity.ipv6_string = publicIp;
+            MainActivity.ipv6_status = true;
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
     }
 }
