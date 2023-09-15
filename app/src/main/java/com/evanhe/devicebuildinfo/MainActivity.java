@@ -41,8 +41,6 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
-import android.content.res.Configuration;
-import android.content.res.Resources;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.location.Address;
@@ -144,6 +142,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     android.location.LocationListener locationListener;
     LinearLayout linearLayout;
     private static final int REQUEST_CODE_RECOVER_PLAY_SERVICES = 200;
+    public static TelephonyManager telephonyManager;
+    public static String networkType = "Unknown";
     private String webgl = "";
     private GLSurfaceView mGlSurfaceView;
     private GLSurfaceView.Renderer mGlRenderer = new GLSurfaceView.Renderer() {
@@ -211,7 +211,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         this.device_name = Settings.Global.getString(getContentResolver(), Settings.Global.DEVICE_NAME);
         this.locale = Locale.getDefault().getDisplayCountry();
         this.googlePlayServicesAvailable = isGooglePlayServicesAvailable(MainActivity.this);
-        TelephonyManager telephonyManager = (TelephonyManager) getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE);
+        telephonyManager = (TelephonyManager) getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE);
         this.network = telephonyManager.getNetworkOperatorName();
         this.android_id = Settings.Secure.getString(getApplicationContext().getContentResolver(), "android_id");
         this.local_ip = displayInterfaceInformation();
@@ -228,7 +228,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         set_proxy.setEnabled(false);
     }
 
-    public static String getCMDOutput(String cmd) {
+    public static String getCMDOutput(String cmd, boolean newline) {
 
         Process process = null;
         String out = "";
@@ -239,12 +239,19 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             String line = "";
             while ((line = bufferedReader.readLine()) != null) {
                 result.append(line);
+                if (newline) {
+                    result.append("\n");
+                }
             }
             out = result.toString().trim();
         } catch (IOException e) {
             e.printStackTrace();
         }
         return out;
+    }
+
+    public static String getCMDOutput(String cmd) {
+        return getCMDOutput(cmd, false);
     }
 
     public DisplayMetrics getDisplayMetrics() {
@@ -346,7 +353,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 try {
                     requestLocationPermission();
-                    this.imei = ((TelephonyManager) getApplicationContext().getSystemService("phone")).getDeviceId();
+                    this.imei = ((TelephonyManager) getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE)).getDeviceId();
                     MainActivity.browser.loadUrl("javascript:(updateIMEI(\"" + this.imei + "\"))");
                 } catch (Exception e) {
 //                    e.printStackTrace();
@@ -382,22 +389,66 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         return true;
     }
 
+    public String getNetworkType() {
+
+        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED ) {
+            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_PHONE_STATE}, REQUEST_CODE_READ_PHONE);
+        }
+        else {
+            if (telephonyManager != null) {
+                int networkTypeCode = telephonyManager.getNetworkType();
+
+                switch (networkTypeCode) {
+                    case TelephonyManager.NETWORK_TYPE_GPRS:
+                    case TelephonyManager.NETWORK_TYPE_EDGE:
+                    case TelephonyManager.NETWORK_TYPE_CDMA:
+                    case TelephonyManager.NETWORK_TYPE_1xRTT:
+                    case TelephonyManager.NETWORK_TYPE_IDEN:
+                        networkType = "2G";
+                        break;
+
+                    case TelephonyManager.NETWORK_TYPE_UMTS:
+                    case TelephonyManager.NETWORK_TYPE_EVDO_0:
+                    case TelephonyManager.NETWORK_TYPE_EVDO_A:
+                    case TelephonyManager.NETWORK_TYPE_HSDPA:
+                    case TelephonyManager.NETWORK_TYPE_HSUPA:
+                    case TelephonyManager.NETWORK_TYPE_HSPA:
+                    case TelephonyManager.NETWORK_TYPE_EVDO_B:
+                    case TelephonyManager.NETWORK_TYPE_EHRPD:
+                    case TelephonyManager.NETWORK_TYPE_HSPAP:
+                        networkType = "3G";
+                        break;
+
+                    case TelephonyManager.NETWORK_TYPE_LTE:
+                        networkType = "4G";
+                        break;
+
+                    case TelephonyManager.NETWORK_TYPE_NR:
+                        networkType = "5G";
+                        break;
+                }
+            }
+        }
+
+        return networkType;
+    }
+
     @RequiresApi(api = Build.VERSION_CODES.KITKAT_WATCH)
     @SuppressLint("WrongConstant")
     @Override
     protected void onStart() {
         super.onStart();
 
-        if (!isMockLocationEnabled()) {
+        /*if (!isMockLocationEnabled()) {
             Toast.makeText(MainActivity.this, "Please allow mock locations", Toast.LENGTH_LONG).show();
-            /*try {
+            try {
                 startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
             }
             catch (Exception e) {
                 e.printStackTrace();
                 Toast.makeText(MainActivity.this, "Please enable developer options", Toast.LENGTH_SHORT).show();
-            }*/
-        }
+            }
+        }*/
 
         mGlSurfaceView = new GLSurfaceView(this);
         mGlSurfaceView.setRenderer(mGlRenderer);
@@ -413,7 +464,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                     device_details_string += webgl;
                     RequestBody requestBody = new FormBody.Builder()
                             .add("campaign_id", "3")       // Rummy Circle
-                            .add("device_type", "1")       // Manual Punch
+//                            .add("device_type", "1")       // Manual Punch
+                            .add("device_type", "ACEAFFILINO")       // Custom Real Phones
                             .add("is_bot", "0")
                             .add("android_id", android_id)
                             .add("city", ip_city)
@@ -454,7 +506,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_PHONE_STATE}, REQUEST_CODE_READ_PHONE);
             }
             else {
-                this.imei = ((TelephonyManager) getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE)).getDeviceId();
+                this.imei = telephonyManager.getDeviceId();
             }
         } catch (Exception e){
 //            e.printStackTrace();
@@ -497,15 +549,17 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         }
 
         device_details_string = "" +
+                "model is " + android_model + ",\n" +
+                "sdk_version is " + sdk_version + ",\n" +
                 "device_id is " + android_id + ",\n" +
+                "network_type is " + getNetworkType() + ",\n" +
+                "getprop is " + getCMDOutput("getprop", true) + ",\n" +
                 "imei is" + imei + ",\n" +
                 "device_name is " + device_name + ",\n" +
-                "sdk_version is " + sdk_version + ",\n" +
                 "release is " + android_OS + ",\n" +
                 "sdk_int is " + SDK_INT + ",\n" +
                 "os_aarch is " + System.getProperty("os.arch") + ",\n" +
                 "device is " + android_device + ",\n" +
-                "model is " + android_model + ",\n" +
                 "brand is " + android_brand + ",\n" +
                 "manufacturer is " + manufacturer + ",\n" +
                 "product is " + android_product + ",\n" +
@@ -525,7 +579,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "screen_width is " + screenDisplay.widthPixels + ",\n" +
                 "is_tablet is " + isTablet() + ",\n" +
                 "user_agent is " + System.getProperty( "http.agent" ) + ",\n" +
-                "sensors is\n" + ss.toString() + "" +
+                "sensors is\n" + ss + "" +
                 "";
         browser.setWebChromeClient(new WebChromeClient() {
             @Override

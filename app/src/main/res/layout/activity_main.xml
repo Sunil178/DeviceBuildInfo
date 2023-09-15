@@ -10,7 +10,8 @@
     <LinearLayout
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_width="fill_parent">
+        android:layout_width="fill_parent"
+        android:visibility="gone">
         <EditText
             android:id="@+id/proxy_string"
             android:layout_height="wrap_content"
@@ -27,5 +28,16 @@
         android:id="@+id/webview"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
+        android:visibility="gone"
+        />
+    <TextView
+        android:layout_height="match_parent"
+        android:layout_width="wrap_content"
+        android:text="ACEAFFILINO"
+        android:gravity="center_vertical"
+        android:layout_gravity="center"
+        android:textColor="@color/black"
+        android:textStyle="bold"
+        android:textSize="30dp"
         />
 </LinearLayout>
