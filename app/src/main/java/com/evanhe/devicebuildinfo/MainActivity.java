@@ -73,10 +73,10 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 import org.json.JSONException;
 import org.json.JSONObject;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
@@ -105,6 +105,10 @@ import java.util.Collections;
 import java.util.Iterator;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
+import android.os.StatFs;
+import android.app.ActivityManager;
+import android.content.IntentFilter;
+import android.os.BatteryManager;
 
 public class MainActivity extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
     private String device_name, android_OS, android_device, android_model, android_brand, android_product, unique_device_id, build_id, display_id, locale, manufacturer, network, abi, tags, android_id, htmlText;
@@ -145,6 +149,10 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     public static TelephonyManager telephonyManager;
     public static String networkType = "Unknown";
     private String webgl = "";
+
+    public static Activity activity;
+
+    public String totalSpaceStr = "", availableSpaceStr = "", totalRamStr ="", availableRamStr = "";
     private GLSurfaceView mGlSurfaceView;
     private GLSurfaceView.Renderer mGlRenderer = new GLSurfaceView.Renderer() {
 
@@ -152,14 +160,18 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
         @Override
         public void onSurfaceCreated(GL10 gl, EGLConfig config) {// TODO Auto-generated method stub
-            Log.d(TAG, "gl renderer: "+gl.glGetString(GL10.GL_RENDERER));
-            Log.d(TAG, "gl vendor: "+gl.glGetString(GL10.GL_VENDOR));
-            Log.d(TAG, "gl version: "+gl.glGetString(GL10.GL_VERSION));
-            Log.d(TAG, "gl extensions: "+gl.glGetString(GL10.GL_EXTENSIONS));
+            //Log.d(TAG, "open_gl_renderer: "+gl.glGetString(GL10.GL_RENDERER));
+            //Log.d(TAG, "open_gl_vendor: "+gl.glGetString(GL10.GL_VENDOR));
+            //Log.d(TAG, "open_gl_version: "+gl.glGetString(GL10.GL_VERSION));
+            //Log.d(TAG, "open_gl_extensions: "+gl.glGetString(GL10.GL_EXTENSIONS));
 
             webgl += "GL_RENDERER: " + gl.glGetString(GL10.GL_RENDERER);
             webgl += "\n";
             webgl += "GL_VENDOR: " + gl.glGetString(GL10.GL_VENDOR);
+            webgl += "\n";
+            webgl += "GL_VERSION: " + gl.glGetString(GL10.GL_VERSION);
+            webgl += "\n";
+            webgl += "GL_EXTENSIONS: " + gl.glGetString(GL10.GL_EXTENSIONS);
             MainActivity.opengl_status = true;
             runOnUiThread(new Runnable() {
                 @Override
@@ -189,6 +201,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        activity = this;
         MainActivity.location_status = false;
         MainActivity.network_location_status = false;
         MainActivity.ip_status = false;
@@ -228,6 +241,91 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         set_proxy.setEnabled(false);
     }
 
+    private static String formatSize(long size) {
+        if (size <= 0) return "0";
+        final String[] units = new String[]{"B", "KB", "MB", "GB", "TB"};
+        int digitGroups = (int) (Math.log10(size) / Math.log10(1024));
+        return String.format("%.2f %s", size / Math.pow(1024, digitGroups), units[digitGroups]);
+    }
+
+    public static String getBatteryHealth() {
+        Intent batteryIntent = MainActivity.activity.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+
+        if (batteryIntent != null) {
+            int health = batteryIntent.getIntExtra(BatteryManager.EXTRA_HEALTH, BatteryManager.BATTERY_HEALTH_UNKNOWN);
+
+            switch (health) {
+                case BatteryManager.BATTERY_HEALTH_GOOD:
+                    return "Good";
+                case BatteryManager.BATTERY_HEALTH_OVERHEAT:
+                    return "Overheat";
+                case BatteryManager.BATTERY_HEALTH_DEAD:
+                    return "Dead";
+                case BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE:
+                    return "Over Voltage";
+                case BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE:
+                    return "Unspecified Failure";
+                case BatteryManager.BATTERY_HEALTH_COLD:
+                    return "Cold";
+                default:
+                    return "Unknown";
+            }
+        } else {
+            return "Unknown";
+        }
+    }
+
+    public void getRamInfo() {
+        //Log.d("RamInfo", "RAMINFO");
+        ActivityManager activityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+
+        // Create a MemoryInfo object to get RAM information
+        ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo();
+        activityManager.getMemoryInfo(memoryInfo);
+
+        // Get the total RAM in bytes
+        long totalRam = memoryInfo.totalMem;
+
+        // Get the available RAM in bytes
+        long availableRam = memoryInfo.availMem;
+
+        // Convert to human-readable format (e.g., MB or GB)
+        totalRamStr = formatSize(totalRam);
+        availableRamStr = formatSize(availableRam);
+
+        // Print or use the RAM information
+        //Log.d("RamInfo", "Total RAM: " + totalRamStr);
+        //Log.d("RamInfo", "Available RAM: " + availableRamStr);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
+    public void getDiskSpaceInfo() {
+        // Get the external storage directory
+        File externalStorage = Environment.getExternalStorageDirectory();
+
+        // Create a StatFs object to query the file system
+        StatFs statFs = new StatFs(externalStorage.getAbsolutePath());
+
+        // Get block size (in bytes) and block count
+        long blockSize = statFs.getBlockSizeLong();
+        long totalBlocks = statFs.getBlockCountLong();
+
+        // Calculate total disk space in bytes
+        long totalSpace = totalBlocks * blockSize;
+
+        // Get available blocks and calculate available disk space in bytes
+        long availableBlocks = statFs.getAvailableBlocksLong();
+        long availableSpace = availableBlocks * blockSize;
+
+        // Convert to human-readable format (e.g., MB or GB)
+        totalSpaceStr = formatSize(totalSpace);
+        availableSpaceStr = formatSize(availableSpace);
+
+        // Print or use the disk space information
+        //Log.d("DiskSpaceInfo", "Total Space: " + totalSpaceStr);
+        //Log.d("DiskSpaceInfo", "Available Space: " + availableSpaceStr);
+    }
+
     public static String getCMDOutput(String cmd, boolean newline) {
 
         Process process = null;
@@ -258,6 +356,24 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         DisplayMetrics displayMetrics = new DisplayMetrics();
         ((WindowManager) getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay().getMetrics(displayMetrics);
         return displayMetrics;
+    }
+
+    public String getDisplayMetricsString() {
+        try {
+            DisplayMetrics displayMetrics = getDisplayMetrics();
+            JSONObject display = new JSONObject();
+            display.put("Density-DPI", displayMetrics.densityDpi);
+            display.put("Density", displayMetrics.density);
+            display.put("Width-Pixels", displayMetrics.widthPixels);
+            display.put("Height-Pixels", displayMetrics.heightPixels);
+            display.put("X-DPI", displayMetrics.xdpi);
+            display.put("Y-DPI", displayMetrics.ydpi);
+            display.put("Scaled-Density", displayMetrics.scaledDensity);
+            return display.toString();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return "";
     }
 
     public boolean isTablet() {
@@ -465,7 +581,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                     RequestBody requestBody = new FormBody.Builder()
                             .add("campaign_id", "3")       // Rummy Circle
 //                            .add("device_type", "1")       // Manual Punch
-                            .add("device_type", "ACEAFFILINO")       // Custom Real Phones
+                            .add("device_type", "ACEPLAYSTORE")       // Custom Real Phones
                             .add("is_bot", "0")
                             .add("android_id", android_id)
                             .add("city", ip_city)
@@ -532,13 +648,13 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 }
             }
         });
-        DisplayMetrics screenDisplay = getScreenDisplay();
+
         SensorManager sensorManager;
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         List<Sensor> deviceSensors = sensorManager.getSensorList(Sensor.TYPE_ALL);
         StringBuilder ss = new StringBuilder("");
         for (int i = 0; i < deviceSensors.size(); i++) {
-            ss.append(deviceSensors.get(i).getType() + " : " + deviceSensors.get(i).getStringType() + " : " + deviceSensors.get(i).getName() + " : " + deviceSensors.get(i).getVendor() + "\n");
+            ss.append("\n" + deviceSensors.get(i).getType() + " : " + deviceSensors.get(i).getStringType() + " : " + deviceSensors.get(i).getName() + " : " + deviceSensors.get(i).getVendor() + "\n");
             if (deviceSensors.get(i).getType() == 1)
                 sensor_data += "<br><br><b>Accelerometer:</b> <i>" + deviceSensors.get(i).getName() + " : " + deviceSensors.get(i).getVendor() + "</i>";
             else if (deviceSensors.get(i).getType() == 2) {
@@ -548,13 +664,14 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 sensor_data += "<br><br><b>Gyroscope:</b> <i>" + deviceSensors.get(i).getName() + " : " + deviceSensors.get(i).getVendor() + "</i>";
         }
 
+        getRamInfo();
+        getDiskSpaceInfo();
+
         device_details_string = "" +
                 "model is " + android_model + ",\n" +
                 "sdk_version is " + sdk_version + ",\n" +
                 "device_id is " + android_id + ",\n" +
-                "network_type is " + getNetworkType() + ",\n" +
-                "getprop is " + getCMDOutput("getprop", true) + ",\n" +
-                "imei is" + imei + ",\n" +
+                "imei is " + imei + ",\n" +
                 "device_name is " + device_name + ",\n" +
                 "release is " + android_OS + ",\n" +
                 "sdk_int is " + SDK_INT + ",\n" +
@@ -563,6 +680,18 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "brand is " + android_brand + ",\n" +
                 "manufacturer is " + manufacturer + ",\n" +
                 "product is " + android_product + ",\n" +
+                "total_ram is " + totalRamStr + ",\n" +
+                "available_ram is " + availableRamStr + ",\n" +
+                "total_space is " + totalSpaceStr + ",\n" +
+                "available_space is " + availableSpaceStr + ",\n" +
+                "cpu is " + getCMDOutput("cat /proc/cpuinfo", true) + ",\n" +
+                "cpu_cores is " + getCMDOutput("nproc") + ",\n" +
+                "cpu_scaling_cur_freq is " + getCMDOutput("cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq") + ",\n" +
+                "cpu_cpuinfo_min_freq is " + getCMDOutput("cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq") + ",\n" +
+                "cpu_cpuinfo_max_freq is " + getCMDOutput("cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq") + ",\n" +
+                "kernel_hardware is " + getCMDOutput("uname -a") + ",\n" +
+                "battery_health is " + getBatteryHealth() + ",\n" +
+                "network_type is " + getNetworkType() + ",\n" +
                 "network is " + network + ",\n" +
                 "network-gsm.sim.operator.alpha is " + getCMDOutput("getprop gsm.sim.operator.alpha") + ",\n" +
                 "network-gsm.operator.alpha is " + getCMDOutput("getprop gsm.operator.alpha") + ",\n" +
@@ -574,12 +703,11 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 "build_id is " + build_id + ",\n" +
                 "display_id is " + display_id + ",\n" +
                 "locale is " + locale + ",\n" +
-                "screen_dpi is " + screenDisplay.densityDpi + ",\n" +
-                "screen_height is " + screenDisplay.heightPixels + ",\n" +
-                "screen_width is " + screenDisplay.widthPixels + ",\n" +
+                "display_metrics is " + getDisplayMetricsString() + ",\n" +
                 "is_tablet is " + isTablet() + ",\n" +
                 "user_agent is " + System.getProperty( "http.agent" ) + ",\n" +
-                "sensors is\n" + ss + "" +
+                "sensors is " + ss + "" +
+                "getprop is " + getCMDOutput("getprop", true) + ",\n" +
                 "";
         browser.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -963,6 +1091,16 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         MainActivity.set_proxy.performClick();
     }
 
+    public static void runOnUi(String data) {
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                TextView textView = MainActivity.activity.findViewById(R.id.main_text);
+                textView.setText(data);
+            }
+        });
+    }
+
     public static void runOnWebview(String script) {
         new Handler(Looper.getMainLooper()).post(new Runnable() {
             @Override
@@ -986,13 +1124,19 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 String res = response.body().string();
-                Log.d("ACEBOT-postAPI", res);
+                //Log.d("ACEBOT-postAPI", res);
                 try {
                     JSONObject obj = new JSONObject(res);
-                    MainActivity.runOnWebview("javascript:(alert(\"" + obj.getString("message") + "\"))");
+                    if (obj.getInt("status") == 200) {
+                        runOnUi("Battery Health: " + getBatteryHealth());
+                    } else {
+                        runOnUi("Battery Health: Failed To Get Status");
+                    }
+                    //MainActivity.runOnWebview("javascript:(alert(\"" + obj.getString("message") + "\"))");
                 } catch (JSONException e) {
                     e.printStackTrace();
-                    MainActivity.runOnWebview("javascript:(alert(\"Failed to save data\"))");
+                    runOnUi("Battery Health: Failed To Get Status");
+                    //MainActivity.runOnWebview("javascript:(alert(\"Failed to save data\"))");
                 }
             }
         });
@@ -1087,14 +1231,14 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 askToEnableLocation();
                 if (isLocationEnabled()) {
                     List<String> providers = locationManager.getProviders(true);
-                    Log.i("ACEBOT", "ENABLED_PROVIDER: " + providers.toString());
+                    //Log.i("ACEBOT", "ENABLED_PROVIDER: " + providers.toString());
                     providers = locationManager.getProviders(false);
-                    Log.i("ACEBOT", "ALL_PROVIDER: " + providers.toString());
+                    //Log.i("ACEBOT", "ALL_PROVIDER: " + providers.toString());
 
-                    Log.i("ACEBOT", "NETWORK_PROVIDER: " + locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER));
-                    Log.i("ACEBOT", "GPS_PROVIDER: " + locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER));
-                    Log.i("ACEBOT", "FUSED_PROVIDER: " + locationManager.getLastKnownLocation(LocationManager.FUSED_PROVIDER));
-                    Log.i("ACEBOT", "PASSIVE_PROVIDER: " + locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER));
+                    //Log.i("ACEBOT", "NETWORK_PROVIDER: " + locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER));
+                    //Log.i("ACEBOT", "GPS_PROVIDER: " + locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER));
+                    //Log.i("ACEBOT", "FUSED_PROVIDER: " + locationManager.getLastKnownLocation(LocationManager.FUSED_PROVIDER));
+                    //Log.i("ACEBOT", "PASSIVE_PROVIDER: " + locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER));
 
                     if (locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) == null) {
                         MainActivity.network_location_status = false;
@@ -1145,10 +1289,10 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     @SuppressLint("MissingPermission")
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
     private void setMock(String provider, double latitude, double longitude) {
-        Log.i("ACEBOT", "provider: " + provider + " - latitude: " + latitude + " - longitude: " + longitude);
+        //Log.i("ACEBOT", "provider: " + provider + " - latitude: " + latitude + " - longitude: " + longitude);
         latitude = 19.0760;
         longitude = 72.8777;
-        Log.i("ACEBOT", "provider: " + provider + " - latitude: " + latitude + " - longitude: " + longitude);
+        //Log.i("ACEBOT", "provider: " + provider + " - latitude: " + latitude + " - longitude: " + longitude);
         mockLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         mockLocationManager.addTestProvider (provider, false, false, false, false, false, true, true, ProviderProperties.POWER_USAGE_MEDIUM, ProviderProperties.ACCURACY_FINE);
         Location newLocation = new Location(provider);
@@ -1169,7 +1313,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
         mockLocationManager.setTestProviderLocation(provider, newLocation);
         LocationServices.FusedLocationApi.setMockMode(mGoogleApiClient, true);
         LocationServices.FusedLocationApi.setMockLocation(mGoogleApiClient, newLocation);
-        Log.i("ACEBOT", "Mock location is set");
+        //Log.i("ACEBOT", "Mock location is set");
     }
 
     @SuppressLint("MissingPermission")
